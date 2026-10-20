@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+# .agents/hooks/git-pre-commit (Se enlaza en .git/hooks/pre-commit)
+# Puerta de verificación determinista SDD antes de confirmar cambios en Git
+
+set -euo pipefail
+
+SEB_BIN=".seb/bin/seb"
+
+# 1. Higiene básica de Git diff
+if ! git diff --cached --check >/dev/null 2>&1; then
+  echo "[seb-harness GIT GATE] Error: 'git diff --cached --check' detectó marcadores de conflicto o errores de whitespace." >&2
+  exit 1
+fi
+
+# 2. Prohibir que se suban archivos .env o la base de datos de auditoría local por accidente
+STAGED_FILES="$(git diff --cached --name-only)"
+if echo "${STAGED_FILES}" | grep -Eq '(^|/)\.env($|\.)'; then
+  echo "[seb-harness GIT GATE] Bloqueado: Intentando commitear un archivo .env con posibles secretos." >&2
+  exit 1
+fi
+
+# 3. Si solo estamos commiteando artefactos SDD (docs/constitution.md, specs/*, MEMORY.md, AGENTS.md), permitir el commit (Spec-Only commit)
+NON_SDD_FILES="$(echo "${STAGED_FILES}" | grep -Ev '^(docs/constitution\.md|specs/|MEMORY\.md|AGENTS\.md|\.agents/|\.seb/)' || true)"
+
+if [ -z "${NON_SDD_FILES}" ]; then
+  echo "[seb-harness GIT GATE] Commit de artefactos SDD/Harness detectado. Permitido."
+  exit 0
+fi
+
+# 4. Si hay cambios en código fuente, exigir que la tarea activa pase seb verify
+if [ -x "${SEB_BIN}" ] && [ -f ".seb/seb-audit.db" ] && command -v sqlite3 >/dev/null 2>&1; then
+  ACTIVE_TASK="$(sqlite3 ".seb/seb-audit.db" "SELECT name FROM tasks WHERE status IN ('PLANNED', 'FAILED_VERIFICATION', 'VERIFIED') ORDER BY updated_at DESC LIMIT 1;" 2>/dev/null || true)"
+  if [ -n "${ACTIVE_TASK}" ]; then
+    echo "[seb-harness GIT GATE] Ejecutando verificación programática obligatoria para la tarea activa: '${ACTIVE_TASK}'..."
+    if ! "${SEB_BIN}" verify "${ACTIVE_TASK}"; then
+      echo "[seb-harness GIT GATE] ❌ Commit rechazado: Las validaciones de 'specs/${ACTIVE_TASK}_verificador.md' no están en [PASA]." >&2
+      exit 1
+    fi
+  fi
+fi
+
+exit 0

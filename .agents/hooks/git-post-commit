@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# .agents/hooks/git-post-commit (Se enlaza en .git/hooks/post-commit)
+# Registra el commit en el Audit Trail de SQLite vinculado a la spec activa
+
+set -uo pipefail
+
+SEB_BIN=".seb/bin/seb"
+[ ! -x "${SEB_BIN}" ] && exit 0
+
+COMMIT_HASH="$(git rev-parse --short HEAD 2>/dev/null || echo 'unknown')"
+COMMIT_MSG="$(git log -1 --pretty=%s 2>/dev/null | cut -c 1-120 || echo '')"
+TASK_ID=""
+
+if command -v sqlite3 >/dev/null 2>&1 && [ -f ".seb/seb-audit.db" ]; then
+  TASK_ID="$(sqlite3 ".seb/seb-audit.db" "SELECT id FROM tasks ORDER BY updated_at DESC LIMIT 1;" 2>/dev/null || true)"
+fi
+
+"${SEB_BIN}" audit log \
+  -task="${TASK_ID}" \
+  -agent="git-hook" \
+  -skill="git" \
+  -action="git-commit" \
+  -params="${COMMIT_HASH}" \
+  -result="${COMMIT_MSG}" \
+  -exit-code=0 >/dev/null 2>&1 || true
+
+exit 0
