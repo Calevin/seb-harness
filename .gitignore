@@ -1,3 +1,16 @@
+# Nix y entorno local
 .envrc
-.direnv/*
-.seb/bin/seb
+.direnv/
+result
+
+# Binarios compilados
+.seb/bin/
+bin/
+
+# Bases de datos y locks locales generados durante pruebas
+*.db
+*.db-wal
+*.db-shm
+.seb/seb-audit.db*
+.seb/ACTIVE_TASK
+.seb/seb.lock
