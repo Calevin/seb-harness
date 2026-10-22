@@ -44,8 +44,8 @@ while [ $# -gt 0 ]; do
 done
 
 # --- Precondiciones ---------------------------------------------------------
-[ -d "$PAYLOAD/.agents" ] || die "No encuentro payload/.agents (¿corriste migrate.sh?)."
-[ -d "$ENGINE/cmd/seb" ]  || die "No encuentro engine/cmd/seb (¿corriste migrate.sh?)."
+[ -d "$PAYLOAD/.agents" ] || die "No encuentro payload/.agents"
+[ -d "$ENGINE/cmd/seb" ]  || die "No encuentro engine/cmd/seb"
 
 if [ "$SELF" -eq 1 ]; then
     [ -z "$TARGET" ] || die "--self no admite directorio destino."
@@ -56,7 +56,7 @@ else
     TARGET="$(cd "$TARGET" && pwd -P)"
     if [ "$TARGET" = "$HARNESS_DIR" ]; then
         die "El destino es el propio repo seb-harness. Para dogfooding usá: ./install.sh --self
-Para instalar en otro proyecto: $HARNESS_DIR/install.sh /ruta/a/Brienne"
+Para instalar en otro proyecto: $HARNESS_DIR/install.sh /ruta/a/Destino"
     fi
 fi
 
@@ -64,7 +64,7 @@ fi
 if [ "$SELF" -eq 1 ]; then
     info "Modo --self: enlazando .agents -> payload/.agents"
     if [ -e "$TARGET/.agents" ] && [ ! -L "$TARGET/.agents" ]; then
-        die ".agents existe y no es un symlink. Corré primero migrate.sh."
+        die ".agents existe y no es un symlink."
     fi
     ln -sfn payload/.agents "$TARGET/.agents"
 else
