@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
@@ -32,6 +33,15 @@ type CheckItem struct {
 	ReqID   string
 	Desc    string
 	Command string
+}
+
+type SebLock struct {
+	Tasks map[string]TaskLock `json:"tasks"`
+}
+
+type TaskLock struct {
+	SpecHash     string `json:"spec_hash"`
+	VerifierHash string `json:"verifier_hash"`
 }
 
 func main() {
@@ -170,25 +180,33 @@ func cmdSpecNext(db *sql.DB, args []string) {
 	}
 	taskName := sanitizeName(args[0])
 
-	// Si ya existe la tarea, devolver su ruta actual
-	var existingID, existingPath string
-	err := db.QueryRow(`SELECT id, spec_path FROM tasks WHERE name = ?`, taskName).Scan(&existingID, &existingPath)
-	if err == nil {
-		fmt.Println(existingPath)
-		return
+	// 1. Escanear el directorio specs/ para encontrar el prefijo numérico más alto real
+	files, _ := filepath.Glob("specs/*_*_spec.md")
+	maxID := 0
+	re := regexp.MustCompile(`^specs/(\d{3})_`)
+
+	for _, f := range files {
+		matches := re.FindStringSubmatch(f)
+		if len(matches) == 2 {
+			var id int
+			fmt.Sscanf(matches[1], "%d", &id)
+			if id > maxID {
+				maxID = id
+			}
+		}
 	}
 
-	var count int
-	if err := db.QueryRow(`SELECT COUNT(*) FROM tasks`).Scan(&count); err != nil {
-		fatal("Error consultando secuencia: %v", err)
-	}
-	nextID := fmt.Sprintf("%03d", count+1)
+	nextID := fmt.Sprintf("%03d", maxID+1)
 	specPath := filepath.Join("specs", fmt.Sprintf("%s_%s_spec.md", nextID, taskName))
 
-	_, err = db.Exec(`INSERT INTO tasks (id, name, spec_path, status) VALUES (?, ?, ?, 'SPECIFIED')`,
+	// 2. Sincronizar idempotentemente la base de datos local
+	_, err := db.Exec(`
+		INSERT INTO tasks (id, name, spec_path, status)
+		VALUES (?, ?, ?, 'SPECIFIED')
+		ON CONFLICT(name) DO UPDATE SET spec_path=excluded.spec_path`,
 		nextID, taskName, specPath)
 	if err != nil {
-		fatal("Error registrando tarea en SQLite: %v", err)
+		fatal("Error sincronizando tarea en SQLite: %v", err)
 	}
 
 	logInternalAction(db, nextID, "seb-especificador", "spec-next", taskName, specPath, 0)
@@ -223,23 +241,25 @@ func cmdPlanLock(db *sql.DB, args []string) {
 		fatal("BLOQUEO SDD: '%s' no existe o no contiene comandos de verificación programática válidos.", verifPath)
 	}
 
-	specHash, err := fileSHA256(specPath)
-	if err != nil {
-		fatal("Error calculando hash de spec: %v", err)
-	}
-	verifHash, err := fileSHA256(verifPath)
-	if err != nil {
-		fatal("Error calculando hash de verificador: %v", err)
-	}
+	specHash, _ := fileSHA256(specPath)
+	verifHash, _ := fileSHA256(verifPath)
 
-	_, err = db.Exec(`UPDATE tasks SET status = 'PLANNED', spec_sha256 = ?, verifier_sha256 = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?`,
-		specHash, verifHash, id)
-	if err != nil {
-		fatal("Error sellando hashes en SQLite: %v", err)
+	// Guardar hashes en seb.lock versionado por Git
+	lock := readLockFile()
+	lock.Tasks[taskName] = TaskLock{
+		SpecHash:     specHash,
+		VerifierHash: verifHash,
 	}
+	writeLockFile(lock)
+
+	// Marcar la tarea como activa para el pre-commit hook
+	setActiveTask(taskName)
+
+	// Actualizar estado en SQLite (solo para observabilidad local)
+	_, _ = db.Exec(`UPDATE tasks SET status = 'PLANNED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id)
 
 	logInternalAction(db, id, "seb-planificador", "plan-lock", taskName, fmt.Sprintf("checks=%d", len(checks)), 0)
-	fmt.Printf("[seb-harness] Plan y Verificador sellados para '%s' (%d controles programáticos registrados).\n", taskName, len(checks))
+	fmt.Printf("[seb-harness] Plan sellado en .seb/seb.lock y marcado como activo para '%s'.\n", taskName)
 }
 
 // 3. seb verify <nombre_tarea>
@@ -249,9 +269,8 @@ func cmdVerify(db *sql.DB, args []string) {
 	}
 	taskName := sanitizeName(args[0])
 
-	var id, specPath, expectedSpecHash, expectedVerifHash string
-	err := db.QueryRow(`SELECT id, spec_path, spec_sha256, verifier_sha256 FROM tasks WHERE name = ?`, taskName).
-		Scan(&id, &specPath, &expectedSpecHash, &expectedVerifHash)
+	var id, specPath string
+	err := db.QueryRow(`SELECT id, spec_path FROM tasks WHERE name = ?`, taskName).Scan(&id, &specPath)
 	if err != nil {
 		fatal("Tarea '%s' no registrada en SQLite.", taskName)
 	}
@@ -259,16 +278,22 @@ func cmdVerify(db *sql.DB, args []string) {
 	verifPath := filepath.Join("specs", fmt.Sprintf("%s_verificador.md", taskName))
 
 	// Control de Integridad Anti-Reward-Hacking
-	if expectedSpecHash != "" {
-		currentSpecHash, _ := fileSHA256(specPath)
-		if currentSpecHash != expectedSpecHash {
-			fatal("VIOLACIÓN DE INTEGRIDAD (Anti-Reward-Hacking): '%s' fue modificado sin autorización después del plan-lock.", specPath)
+	// Leer hashes desde seb.lock versionado por Git
+	lock := readLockFile()
+	taskLock, exists := lock.Tasks[taskName]
+
+	if exists {
+		if taskLock.SpecHash != "" {
+			currentSpecHash, _ := fileSHA256(specPath)
+			if currentSpecHash != taskLock.SpecHash {
+				fatal("VIOLACIÓN DE INTEGRIDAD (Anti-Reward-Hacking): '%s' modificado.", specPath)
+			}
 		}
-	}
-	if expectedVerifHash != "" {
-		currentVerifHash, _ := fileSHA256(verifPath)
-		if currentVerifHash != expectedVerifHash {
-			fatal("VIOLACIÓN DE INTEGRIDAD (Anti-Reward-Hacking): '%s' fue modificado durante la implementación. Restaura el archivo original.", verifPath)
+		if taskLock.VerifierHash != "" {
+			currentVerifHash, _ := fileSHA256(verifPath)
+			if currentVerifHash != taskLock.VerifierHash {
+				fatal("VIOLACIÓN DE INTEGRIDAD (Anti-Reward-Hacking): '%s' modificado.", verifPath)
+			}
 		}
 	}
 
@@ -320,6 +345,8 @@ func cmdVerify(db *sql.DB, args []string) {
 		os.Exit(2)
 	}
 
+	// Liberar el hook pre-commit porque la tarea pasó la verificación
+	clearActiveTask()
 	_, _ = db.Exec(`UPDATE tasks SET status = 'VERIFIED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id)
 	fmt.Println("\n**VEREDICTO:** `APROBADO` — Todos los controles deterministas pasaron con éxito.")
 }
@@ -611,4 +638,27 @@ Comandos disponibles:
 func fatal(format string, a ...any) {
 	fmt.Fprintf(os.Stderr, "[seb-harness ERROR] "+format+"\n", a...)
 	os.Exit(1)
+}
+
+func readLockFile() SebLock {
+	var lock SebLock
+	lock.Tasks = make(map[string]TaskLock)
+	b, err := os.ReadFile(".seb/seb.lock")
+	if err == nil {
+		_ = json.Unmarshal(b, &lock)
+	}
+	return lock
+}
+
+func writeLockFile(lock SebLock) {
+	b, _ := json.MarshalIndent(lock, "", "  ")
+	_ = os.WriteFile(".seb/seb.lock", b, 0644)
+}
+
+func setActiveTask(taskName string) {
+	_ = os.WriteFile(".seb/ACTIVE_TASK", []byte(taskName), 0644)
+}
+
+func clearActiveTask() {
+	_ = os.Remove(".seb/ACTIVE_TASK")
 }

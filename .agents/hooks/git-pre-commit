@@ -28,12 +28,13 @@ if [ -z "${NON_SDD_FILES}" ]; then
 fi
 
 # 4. Si hay cambios en código fuente, exigir que la tarea activa pase seb verify
-if [ -x "${SEB_BIN}" ] && [ -f ".seb/seb-audit.db" ] && command -v sqlite3 >/dev/null 2>&1; then
-  ACTIVE_TASK="$(sqlite3 ".seb/seb-audit.db" "SELECT name FROM tasks WHERE status IN ('PLANNED', 'FAILED_VERIFICATION', 'VERIFIED') ORDER BY updated_at DESC LIMIT 1;" 2>/dev/null || true)"
+if [ -x "${SEB_BIN}" ] && [ -f ".seb/ACTIVE_TASK" ]; then
+  ACTIVE_TASK="$(cat ".seb/ACTIVE_TASK" | tr -d '[:space:]')"
+
   if [ -n "${ACTIVE_TASK}" ]; then
-    echo "[seb-harness GIT GATE] Ejecutando verificación programática obligatoria para la tarea activa: '${ACTIVE_TASK}'..."
+    echo "[seb-harness GIT GATE] Verificación programática obligatoria para la tarea: '${ACTIVE_TASK}'..."
     if ! "${SEB_BIN}" verify "${ACTIVE_TASK}"; then
-      echo "[seb-harness GIT GATE] ❌ Commit rechazado: Las validaciones de 'specs/${ACTIVE_TASK}_verificador.md' no están en [PASA]." >&2
+      echo "[seb-harness GIT GATE] ❌ Commit rechazado: Las validaciones de 'specs/${ACTIVE_TASK}_verificador.md' fallaron." >&2
       exit 1
     fi
   fi
