@@ -26,3 +26,4 @@
 
 ## 5. Decisiones Técnicas Relevantes (Histórico Reciente)
 - `[D-01] Adopción de pure Go SQLite (modernc.org/sqlite) -> CGO SQLite (mattn/go-sqlite3) -> Eliminar necesidad de toolchain C en NixOS/cross-compilation.`
+- `[D-02] Telemetría dual e híbrida -> Captura solo vía bash hooks -> Centralización de cascada de tarea activa en Go, cronometraje de comandos internos, soporte de archivos usage.jsonl y cálculo de costos con .seb/config.json.`

@@ -5,16 +5,30 @@
 set -uo pipefail
 
 SEB_BIN=".seb/bin/seb"
-TIMER_FILE="/tmp/seb_timer_${SEB_SESSION_ID:-default}_$$"
-
-# Registrar timestamp de inicio en milisegundos (para post-tool.sh)
-date +%s%3N > "${TIMER_FILE}" 2>/dev/null \vert{}\vert{} date +\%s000 > "${TIMER_FILE}"
 
 # Capturar payload stdin si el agente (agy / pi) envía JSON descriptivo de la tool
 PAYLOAD=""
 if [ ! -t 0 ]; then
   PAYLOAD="$(cat)"
 fi
+
+# Extraer Session ID homogéneo
+SESSION_ID="${SEB_SESSION_ID:-${AGY_SESSION_ID:-${PI_SESSION_ID:-local-$(date +%Y%m%d)}}}"
+
+# Extraer Tool Call ID si existe para correlación exacta en concurrencia
+TOOL_CALL_ID=""
+if [ -n "${PAYLOAD}" ] && command -v jq >/dev/null 2>&1; then
+  TOOL_CALL_ID="$(echo "${PAYLOAD}" | jq -r '.tool_call_id // .tool_use_id // .id // empty' 2>/dev/null)"
+fi
+
+if [ -n "${TOOL_CALL_ID}" ]; then
+  TIMER_FILE="/tmp/seb_timer_${SESSION_ID}_${TOOL_CALL_ID}"
+else
+  TIMER_FILE="/tmp/seb_timer_${SESSION_ID}_call_latest"
+fi
+
+# Registrar timestamp de inicio en milisegundos (para post-tool.sh)
+date +%s%3N > "${TIMER_FILE}" 2>/dev/null || date +%s000 > "${TIMER_FILE}"
 
 TOOL_NAME="${SEB_TOOL_NAME:-${AGY_TOOL_NAME:-${PI_TOOL_NAME:-unknown}}}"
 TARGET_PATH="${SEB_TARGET_PATH:-${AGY_FILE_PATH:-${PI_FILE_PATH:-}}}"
@@ -46,7 +60,7 @@ if [ -n "${COMMAND_STR}" ]; then
   fi
 
   # Evitar que un comando shell redirija escritura hacia specs/*_verificador.md o constitution.md durante implementación
-  if [ "${ACTIVE_ROLE}" = "implementador" ] \vert{}\vert{} [ -z "${ACTIVE_ROLE}" ]; then
+  if [ "${ACTIVE_ROLE}" = "implementador" ] || [ -z "${ACTIVE_ROLE}" ]; then
     if echo "${COMMAND_STR}" | grep -Eq '(>|tee|sed[[:space:]]+-i).*(constitution\.md|_spec\.md|_verificador\.md)'; then
       echo "[seb-harness ANTI-REWARD-HACKING] Prohibido modificar contratos SDD mediante comandos de shell." >&2
       exit 2

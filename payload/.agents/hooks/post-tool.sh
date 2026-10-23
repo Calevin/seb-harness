@@ -12,6 +12,7 @@ SESSION_ID="${SEB_SESSION_ID:-${AGY_SESSION_ID:-${PI_SESSION_ID:-local-$(date +%
 TASK_ID="${SEB_TASK_ID:-}"
 AGENT_NAME="${SEB_AGENT:-${AGY_AGENT_NAME:-pi-or-agy}}"
 SKILL_NAME="${SEB_SKILL:-implementador}"
+MODEL_NAME="${SEB_MODEL:-${AGY_MODEL:-${PI_MODEL:-${ANTHROPIC_MODEL:-}}}}"
 
 PAYLOAD=""
 if [ ! -t 0 ]; then
@@ -26,31 +27,38 @@ COST_USD="${SEB_COST_USD:-${OPENROUTER_COST_USD:-0.0}}"
 PARAMS_SUMMARY=""
 RESULT_SUMMARY="ok"
 
+TOOL_CALL_ID=""
 if [ -n "${PAYLOAD}" ] && command -v jq >/dev/null 2>&1; then
+  TOOL_CALL_ID="$(echo "${PAYLOAD}" | jq -r '.tool_call_id // .tool_use_id // .id // empty' 2>/dev/null)"
   TOOL_NAME="$(echo "${PAYLOAD}" | jq -r --arg def "${TOOL_NAME}" '.tool_name // .tool // .name // $def' 2>/dev/null)"
   EXIT_CODE="$(echo "${PAYLOAD}" | jq -r --arg def "${EXIT_CODE}" '.exit_code // .tool_response.exit_code // $def' 2>/dev/null)"
   TOKENS_IN="$(echo "${PAYLOAD}" | jq -r --arg def "${TOKENS_IN}" '.usage.input_tokens // .usage.prompt_tokens // $def' 2>/dev/null)"
   TOKENS_OUT="$(echo "${PAYLOAD}" | jq -r --arg def "${TOKENS_OUT}" '.usage.output_tokens // .usage.completion_tokens // $def' 2>/dev/null)"
   COST_USD="$(echo "${PAYLOAD}" | jq -r --arg def "${COST_USD}" '.usage.cost // .usage.total_cost // $def' 2>/dev/null)"
+  MODEL_NAME="$(echo "${PAYLOAD}" | jq -r --arg def "${MODEL_NAME}" '.model // .usage.model // $def' 2>/dev/null)"
   PARAMS_SUMMARY="$(echo "${PAYLOAD}" | jq -c '.tool_input // .parameters // {}' 2>/dev/null | cut -c 1-160)"
 fi
 
-# Calcular latencia buscando el archivo de timer más reciente de la sesión
+# Calcular latencia buscando el archivo de timer correspondiente
 DURATION_MS=0
-LATEST_TIMER="$(ls -t /tmp/seb_timer_${SESSION_ID}_* 2>/dev/null | head -n 1 || true)"
-if [ -n "${LATEST_TIMER}" ] && [ -f "${LATEST_TIMER}" ]; then
-  START_MS="$(cat "${LATEST_TIMER}" 2>/dev/null || echo "${NOW_MS}")"
+TIMER_FILE=""
+if [ -n "${TOOL_CALL_ID}" ] && [ -f "/tmp/seb_timer_${SESSION_ID}_${TOOL_CALL_ID}" ]; then
+  TIMER_FILE="/tmp/seb_timer_${SESSION_ID}_${TOOL_CALL_ID}"
+elif [ -f "/tmp/seb_timer_${SESSION_ID}_call_latest" ]; then
+  TIMER_FILE="/tmp/seb_timer_${SESSION_ID}_call_latest"
+else
+  TIMER_FILE="$(ls -t /tmp/seb_timer_${SESSION_ID}_* 2>/dev/null | head -n 1 || true)"
+fi
+
+if [ -n "${TIMER_FILE}" ] && [ -f "${TIMER_FILE}" ]; then
+  START_MS="$(cat "${TIMER_FILE}" 2>/dev/null || echo "${NOW_MS}")"
   DURATION_MS=$(( NOW_MS - START_MS ))
   [ "${DURATION_MS}" -lt 0 ] && DURATION_MS=0
-  rm -f "${LATEST_TIMER}"
+  rm -f "${TIMER_FILE}"
 fi
 
-# Si no hay TASK_ID explícito en el entorno, tomar la última tarea activa en SQLite
-if [ -z "${TASK_ID}" ] && command -v sqlite3 >/dev/null 2>&1 && [ -f ".seb/seb-audit.db" ]; then
-  TASK_ID="$(sqlite3 ".seb/seb-audit.db" "SELECT id FROM tasks WHERE status != 'VERIFIED' ORDER BY id DESC LIMIT 1;" 2>/dev/null || true)"
-fi
-
-# Registrar de forma estructurada en SQLite sin exponer secretos
+# Registrar de forma estructurada en SQLite sin exponer secretos.
+# Delegamos la resolucion de TASK_ID a la cascada de seb audit log si viene vacio.
 "${SEB_BIN}" audit log \
   -session="${SESSION_ID}" \
   -task="${TASK_ID}" \
@@ -63,6 +71,7 @@ fi
   -tokens-in="${TOKENS_IN}" \
   -tokens-out="${TOKENS_OUT}" \
   -cost-usd="${COST_USD}" \
+  -model="${MODEL_NAME}" \
   -exit-code="${EXIT_CODE}" >/dev/null 2>&1 || true
 
 exit 0

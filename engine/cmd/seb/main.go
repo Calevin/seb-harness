@@ -44,6 +44,27 @@ type TaskLock struct {
 	VerifierHash string `json:"verifier_hash"`
 }
 
+// ModelPricing define las tarifas monetarias por millon de tokens
+type ModelPricing struct {
+	PromptPricePerMillion     float64 `json:"prompt_price_per_million"`
+	CompletionPricePerMillion float64 `json:"completion_price_per_million"`
+}
+
+// EngineConfig representa la configuracion local opcional de .seb/config.json
+type EngineConfig struct {
+	Pricing map[string]ModelPricing `json:"pricing"`
+}
+
+// UsageRecord representa la linea estructurada de un archivo usage.jsonl
+type UsageRecord struct {
+	Timestamp        string `json:"timestamp"`
+	Turns            int    `json:"turns"`
+	InputTokens      int64  `json:"input_tokens"`
+	OutputTokens     int64  `json:"output_tokens"`
+	ApprovalRequired bool   `json:"approval_required"`
+	Outcome          string `json:"outcome"`
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -110,14 +131,7 @@ func ensureDirectories() error {
 	return nil
 }
 
-func openDB() (*sql.DB, error) {
-	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
-		return nil, err
-	}
-	db, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
-	if err != nil {
-		return nil, err
-	}
+func initDBSchema(db *sql.DB) error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS tasks (
 		id TEXT PRIMARY KEY,
@@ -167,7 +181,19 @@ func openDB() (*sql.DB, error) {
 	);
 	CREATE INDEX IF NOT EXISTS idx_verif_task_ts ON verifications(task_id, timestamp);
 	`
-	if _, err := db.Exec(schema); err != nil {
+	_, err := db.Exec(schema)
+	return err
+}
+
+func openDB() (*sql.DB, error) {
+	if err := os.MkdirAll(filepath.Dir(dbPath), 0755); err != nil {
+		return nil, err
+	}
+	db, err := sql.Open("sqlite", dbPath+"?_pragma=journal_mode(WAL)&_pragma=busy_timeout(5000)")
+	if err != nil {
+		return nil, err
+	}
+	if err := initDBSchema(db); err != nil {
 		return nil, err
 	}
 	return db, nil
@@ -175,6 +201,7 @@ func openDB() (*sql.DB, error) {
 
 // 1. seb spec-next <nombre_tarea>
 func cmdSpecNext(db *sql.DB, args []string) {
+	start := time.Now()
 	if len(args) < 1 {
 		fatal("Uso: seb spec-next <nombre_tarea>")
 	}
@@ -209,12 +236,14 @@ func cmdSpecNext(db *sql.DB, args []string) {
 		fatal("Error sincronizando tarea en SQLite: %v", err)
 	}
 
-	logInternalAction(db, nextID, "seb-especificador", "spec-next", taskName, specPath, 0)
+	dur := time.Since(start).Milliseconds()
+	logInternalAction(db, nextID, "seb-especificador", "spec-next", taskName, specPath, dur, 0)
 	fmt.Println(specPath)
 }
 
 // 2. seb plan-lock <nombre_tarea> (Sella hashes SHA-256 de spec y verificador)
 func cmdPlanLock(db *sql.DB, args []string) {
+	start := time.Now()
 	if len(args) < 1 {
 		fatal("Uso: seb plan-lock <nombre_tarea>")
 	}
@@ -258,12 +287,14 @@ func cmdPlanLock(db *sql.DB, args []string) {
 	// Actualizar estado en SQLite (solo para observabilidad local)
 	_, _ = db.Exec(`UPDATE tasks SET status = 'PLANNED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id)
 
-	logInternalAction(db, id, "seb-planificador", "plan-lock", taskName, fmt.Sprintf("checks=%d", len(checks)), 0)
+	dur := time.Since(start).Milliseconds()
+	logInternalAction(db, id, "seb-planificador", "plan-lock", taskName, fmt.Sprintf("checks=%d", len(checks)), dur, 0)
 	fmt.Printf("[seb-harness] Plan sellado en .seb/seb.lock y marcado como activo para '%s'.\n", taskName)
 }
 
 // 3. seb verify <nombre_tarea>
 func cmdVerify(db *sql.DB, args []string) {
+	startVerify := time.Now()
 	if len(args) < 1 {
 		fatal("Uso: seb verify <nombre_tarea>")
 	}
@@ -338,7 +369,9 @@ func cmdVerify(db *sql.DB, args []string) {
 
 	fmt.Printf("\n**Resumen de Cobertura:** %d/%d controles en `[PASA]`, %d en `[FALLA]`.\n", passed, len(checks), failed)
 
+	durVerify := time.Since(startVerify).Milliseconds()
 	if failed > 0 {
+		logInternalAction(db, id, "seb-verificador", "verify", taskName, fmt.Sprintf("passed=%d failed=%d", passed, failed), durVerify, 2)
 		_, _ = db.Exec(`UPDATE tasks SET status = 'FAILED_VERIFICATION', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id)
 		fmt.Println(failureDetails.String())
 		fmt.Println("\n**VEREDICTO:** `PENDIENTE DE IMPLEMENTACIÓN` — Corrige el código de aplicación sin alterar `*_verificador.md`.")
@@ -347,6 +380,7 @@ func cmdVerify(db *sql.DB, args []string) {
 
 	// Liberar el hook pre-commit porque la tarea pasó la verificación
 	clearActiveTask()
+	logInternalAction(db, id, "seb-verificador", "verify", taskName, fmt.Sprintf("passed=%d failed=%d", passed, failed), durVerify, 0)
 	_, _ = db.Exec(`UPDATE tasks SET status = 'VERIFIED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id)
 	fmt.Println("\n**VEREDICTO:** `APROBADO` — Todos los controles deterministas pasaron con éxito.")
 }
@@ -409,6 +443,7 @@ func runCommandWithTimeout(cmdStr string, timeout time.Duration) (int, string) {
 
 // 4. seb guard <role> <action> <target_path> (Principio de Menor Privilegio)
 func cmdGuard(db *sql.DB, args []string) {
+	start := time.Now()
 	if len(args) < 3 {
 		fatal("Uso: seb guard <rol_o_skill> <write|exec> <ruta_o_comando>")
 	}
@@ -418,7 +453,8 @@ func cmdGuard(db *sql.DB, args []string) {
 
 	allowed := checkPermission(role, action, target)
 	if !allowed {
-		logInternalAction(db, "", role, "guard-blocked:"+action, target, "DENIED", 1)
+		dur := time.Since(start).Milliseconds()
+		logInternalAction(db, "", role, "guard-blocked:"+action, target, "DENIED", dur, 1)
 		fatal("GUARDARRAÍL DE MENOR PRIVILEGIO: El rol '%s' NO tiene permiso para '%s' sobre '%s'.", role, action, target)
 	}
 }
@@ -452,6 +488,7 @@ func checkPermission(role, action, target string) bool {
 
 // 5. seb memory-add "<categoria>" "<texto>"
 func cmdMemoryAdd(db *sql.DB, args []string) {
+	start := time.Now()
 	if len(args) < 2 {
 		fatal("Uso: seb memory-add \"<categoría>\" \"<descripción>\"")
 	}
@@ -469,7 +506,8 @@ func cmdMemoryAdd(db *sql.DB, args []string) {
 	if _, err := f.WriteString(line); err != nil {
 		fatal("Error escribiendo en MEMORY.md: %v", err)
 	}
-	logInternalAction(db, "", "seb-cli", "memory-add", category, entry, 0)
+	dur := time.Since(start).Milliseconds()
+	logInternalAction(db, "", "seb-cli", "memory-add", category, entry, dur, 0)
 	fmt.Println("[seb-harness] Entrada registrada en MEMORY.md y auditada en SQLite.")
 }
 
@@ -490,10 +528,10 @@ func cmdStatus(db *sql.DB, args []string) {
 	}
 }
 
-// 7. seb audit <log|report>
+// 7. seb audit <log|import-usage|report>
 func cmdAudit(db *sql.DB, args []string) {
 	if len(args) < 1 {
-		fatal("Uso: seb audit <log|report> [flags]")
+		fatal("Uso: seb audit <log|import-usage|report> [flags]")
 	}
 	sub := args[0]
 	switch sub {
@@ -508,9 +546,10 @@ func cmdAudit(db *sql.DB, args []string) {
 		result := fs.String("result", "", "Resumen del resultado")
 		level := fs.String("level", "autonomous", "Nivel (autonomous|supervised|always_human)")
 		duration := fs.Int64("duration-ms", 0, "Duración en milisegundos")
-		tokensIn := fs.Int("tokens-in", 0, "Tokens de entrada")
-		tokensOut := fs.Int("tokens-out", 0, "Tokens de salida")
+		tokensIn := fs.Int64("tokens-in", 0, "Tokens de entrada")
+		tokensOut := fs.Int64("tokens-out", 0, "Tokens de salida")
 		costUSD := fs.Float64("cost-usd", 0.0, "Costo estimado en USD")
+		model := fs.String("model", os.Getenv("SEB_MODEL"), "Modelo de lenguaje")
 		exitCode := fs.Int("exit-code", 0, "Código de salida")
 		_ = fs.Parse(args[1:])
 
@@ -521,13 +560,34 @@ func cmdAudit(db *sql.DB, args []string) {
 			*agent = "unknown-agent"
 		}
 
+		resolvedTask := resolveActiveTask(*taskID, os.Getenv("SEB_TASK_ID"), ".seb/ACTIVE_TASK", db)
+		normDuration := normalizeDuration(*duration)
+		finalCost := calculateCost(*costUSD, *model, *tokensIn, *tokensOut, ".seb/config.json")
+
 		_, err := db.Exec(`INSERT INTO agent_actions
 			(session_id, task_id, agent, skill, action, parameters, result_summary, level, duration_ms, tokens_in, tokens_out, cost_usd, exit_code)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			*sessionID, *taskID, *agent, *skill, *action, *params, *result, *level, *duration, *tokensIn, *tokensOut, *costUSD, *exitCode)
+			*sessionID, resolvedTask, *agent, *skill, *action, *params, *result, *level, normDuration, *tokensIn, *tokensOut, finalCost, *exitCode)
 		if err != nil {
 			fatal("Error insertando audit log: %v", err)
 		}
+
+	case "import-usage":
+		fs := flag.NewFlagSet("audit import-usage", flag.ExitOnError)
+		taskID := fs.String("task", os.Getenv("SEB_TASK_ID"), "ID de tarea")
+		file := fs.String("file", "usage.jsonl", "Ruta al archivo usage.jsonl")
+		_ = fs.Parse(args[1:])
+
+		filePath := *file
+		if fs.NArg() > 0 {
+			filePath = fs.Arg(0)
+		}
+
+		count, err := importUsageJsonl(db, *taskID, filePath)
+		if err != nil {
+			fatal("Error importando usage.jsonl: %v", err)
+		}
+		fmt.Printf("[seb-harness] %d registros importados exitosamente desde %s.\n", count, filePath)
 
 	case "report":
 		fmt.Println("## 📊 Audit Trail & Observabilidad (`seb-harness`)")
@@ -577,7 +637,7 @@ func cmdAudit(db *sql.DB, args []string) {
 	}
 }
 
-func logInternalAction(db *sql.DB, taskID, skill, action, params, result string, exitCode int) {
+func logInternalAction(db *sql.DB, taskID, skill, action, params, result string, durationMs int64, exitCode int) {
 	session := os.Getenv("SEB_SESSION_ID")
 	if session == "" {
 		session = "seb-cli-" + time.Now().Format("20060102")
@@ -586,9 +646,146 @@ func logInternalAction(db *sql.DB, taskID, skill, action, params, result string,
 	if agent == "" {
 		agent = "seb-bin"
 	}
-	_, _ = db.Exec(`INSERT INTO agent_actions (session_id, task_id, agent, skill, action, parameters, result_summary, exit_code)
-		VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-		session, taskID, agent, skill, action, params, result, exitCode)
+	resolvedTask := resolveActiveTask(taskID, os.Getenv("SEB_TASK_ID"), ".seb/ACTIVE_TASK", db)
+	durationMs = normalizeDuration(durationMs)
+	_, _ = db.Exec(`INSERT INTO agent_actions (session_id, task_id, agent, skill, action, parameters, result_summary, duration_ms, exit_code)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		session, resolvedTask, agent, skill, action, params, result, durationMs, exitCode)
+}
+
+func resolveActiveTask(explicitTask, envTask string, activeTaskPath string, db *sql.DB) string {
+	if strings.TrimSpace(explicitTask) != "" {
+		return strings.TrimSpace(explicitTask)
+	}
+	if strings.TrimSpace(envTask) != "" {
+		return strings.TrimSpace(envTask)
+	}
+	if activeTaskPath != "" {
+		if content, err := os.ReadFile(activeTaskPath); err == nil {
+			task := strings.TrimSpace(string(content))
+			if task != "" {
+				if db != nil {
+					var id string
+					err := db.QueryRow(`SELECT id FROM tasks WHERE name = ? OR id = ?`, task, task).Scan(&id)
+					if err == nil && id != "" {
+						return id
+					}
+				}
+				return task
+			}
+		}
+	}
+	if db != nil {
+		var id string
+		err := db.QueryRow(`SELECT id FROM tasks WHERE status != 'VERIFIED' ORDER BY updated_at DESC LIMIT 1`).Scan(&id)
+		if err == nil && strings.TrimSpace(id) != "" {
+			return strings.TrimSpace(id)
+		}
+	}
+	return "global"
+}
+
+func normalizeDuration(durationMs int64) int64 {
+	if durationMs < 0 {
+		return 0
+	}
+	return durationMs
+}
+
+func calculateCost(explicitCost float64, model string, tokensIn, tokensOut int64, configPath string) float64 {
+	if explicitCost > 0.0 {
+		return explicitCost
+	}
+	if model == "" || (tokensIn == 0 && tokensOut == 0) {
+		return 0.0
+	}
+	if configPath == "" {
+		configPath = ".seb/config.json"
+	}
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		return 0.0
+	}
+	var cfg EngineConfig
+	if err := json.Unmarshal(data, &cfg); err != nil {
+		return 0.0
+	}
+	pricing, ok := cfg.Pricing[model]
+	if !ok {
+		for m, p := range cfg.Pricing {
+			if strings.EqualFold(m, model) {
+				pricing = p
+				ok = true
+				break
+			}
+		}
+	}
+	if !ok {
+		return 0.0
+	}
+	cost := (float64(tokensIn)*pricing.PromptPricePerMillion + float64(tokensOut)*pricing.CompletionPricePerMillion) / 1000000.0
+	return cost
+}
+
+func importUsageJsonl(db *sql.DB, taskID, filePath string) (int, error) {
+	if filePath == "" {
+		filePath = "usage.jsonl"
+	}
+	f, err := os.Open(filePath)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+
+	resolvedTask := resolveActiveTask(taskID, os.Getenv("SEB_TASK_ID"), ".seb/ACTIVE_TASK", db)
+	sessionID := os.Getenv("SEB_SESSION_ID")
+	if sessionID == "" {
+		sessionID = "import-" + time.Now().Format("20060102")
+	}
+	agent := os.Getenv("SEB_AGENT")
+	if agent == "" {
+		agent = "agent-runner"
+	}
+	skill := os.Getenv("SEB_SKILL")
+	if skill == "" {
+		skill = "implementador"
+	}
+
+	imported := 0
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := strings.TrimSpace(scanner.Text())
+		if line == "" {
+			continue
+		}
+		var rec UsageRecord
+		if err := json.Unmarshal([]byte(line), &rec); err != nil {
+			continue
+		}
+
+		// Idempotencia: Verificar si ya existe un registro con el mismo task_id, parametros y timestamp
+		var count int
+		err := db.QueryRow(`SELECT COUNT(*) FROM agent_actions WHERE task_id = ? AND parameters = ? AND timestamp = ?`,
+			resolvedTask, fmt.Sprintf("turns=%d", rec.Turns), rec.Timestamp).Scan(&count)
+		if err == nil && count > 0 {
+			continue // Ya importado
+		}
+
+		cost := calculateCost(0.0, os.Getenv("SEB_MODEL"), rec.InputTokens, rec.OutputTokens, ".seb/config.json")
+		exitCode := 0
+		if rec.Outcome == "failed" || rec.Outcome == "rejected" {
+			exitCode = 1
+		}
+
+		_, err = db.Exec(`INSERT INTO agent_actions
+			(session_id, task_id, agent, skill, action, parameters, result_summary, duration_ms, tokens_in, tokens_out, cost_usd, exit_code, timestamp)
+			VALUES (?, ?, ?, ?, 'agent-session', ?, ?, 0, ?, ?, ?, ?, ?)`,
+			sessionID, resolvedTask, agent, skill, fmt.Sprintf("turns=%d", rec.Turns), rec.Outcome, rec.InputTokens, rec.OutputTokens, cost, exitCode, rec.Timestamp)
+		if err == nil {
+			imported++
+		}
+	}
+	return imported, scanner.Err()
 }
 
 func sanitizeName(raw string) string {
@@ -632,6 +829,7 @@ Comandos disponibles:
   seb memory-add "<categoría>" "<texto>"    Añade aprendizaje a MEMORY.md y registra en SQLite
   seb status                                Muestra el estado de todas las specs en el proyecto
   seb audit log [flags]                     Registra llamada a tool, latencia, tokens y costo USD
+  seb audit import-usage [flags] [archivo]  Importa registros de uso de tokens desde usage.jsonl
   seb audit report                          Imprime informe de observabilidad, latencia y costos por tarea`)
 }
 
