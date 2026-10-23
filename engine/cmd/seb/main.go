@@ -135,7 +135,7 @@ func initDBSchema(db *sql.DB) error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS tasks (
 		id TEXT PRIMARY KEY,
-		name TEXT NOT NULL UNIQUE,
+		name TEXT NOT NULL,
 		spec_path TEXT NOT NULL,
 		status TEXT NOT NULL,
 		spec_sha256 TEXT DEFAULT '',
@@ -199,6 +199,112 @@ func openDB() (*sql.DB, error) {
 	return db, nil
 }
 
+// TaskInfo representa los metadatos completos y rutas canonicas de una tarea
+type TaskInfo struct {
+	ID            string
+	Name          string
+	CanonicalName string
+	SpecPath      string
+	PlanPath      string
+	VerifierPath  string
+	Status        string
+}
+
+// buildArtifactPath construye de manera determinista la ruta con prefijo para cualquier tipo de artefacto
+func buildArtifactPath(id, name, kind string) string {
+	return filepath.Join("specs", fmt.Sprintf("%s_%s_%s.md", id, name, kind))
+}
+
+// resolveTask resuelve de forma flexible una tarea por su ID, nombre simple o clave canonica
+func resolveTask(db *sql.DB, query string) (TaskInfo, error) {
+	q := strings.TrimSpace(query)
+	if q == "" {
+		return TaskInfo{}, errors.New("identificador de tarea vacio")
+	}
+
+	// Normalizar numero simple a 3 digitos con ceros a la izquierda (ej. "1" -> "001")
+	if matched, _ := regexp.MatchString(`^\d+$`, q); matched {
+		var num int
+		fmt.Sscanf(q, "%d", &num)
+		q = fmt.Sprintf("%03d", num)
+	}
+
+	tasksMap := make(map[string]TaskInfo)
+
+	// 1. Consultar tareas registradas en la base de datos local SQLite si esta disponible
+	if db != nil {
+		rows, err := db.Query(`SELECT id, name, status, spec_path FROM tasks`)
+		if err == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var id, name, status, specPath string
+				if err := rows.Scan(&id, &name, &status, &specPath); err == nil {
+					canonical := fmt.Sprintf("%s_%s", id, name)
+					tasksMap[canonical] = TaskInfo{
+						ID:            id,
+						Name:          name,
+						CanonicalName: canonical,
+						SpecPath:      specPath,
+						PlanPath:      buildArtifactPath(id, name, "plan"),
+						VerifierPath:  buildArtifactPath(id, name, "verificador"),
+						Status:        status,
+					}
+				}
+			}
+		}
+	}
+
+	// 2. Escanear specs fisicos en disco para autonomia multi-maquina sin DB inicializada
+	specFiles, _ := filepath.Glob("specs/*_*_spec.md")
+	reSpec := regexp.MustCompile(`^specs/(\d{3})_(.+)_spec\.md$`)
+	for _, f := range specFiles {
+		m := reSpec.FindStringSubmatch(f)
+		if len(m) == 3 {
+			id := m[1]
+			name := m[2]
+			canonical := fmt.Sprintf("%s_%s", id, name)
+			if _, exists := tasksMap[canonical]; !exists {
+				tasksMap[canonical] = TaskInfo{
+					ID:            id,
+					Name:          name,
+					CanonicalName: canonical,
+					SpecPath:      f,
+					PlanPath:      buildArtifactPath(id, name, "plan"),
+					VerifierPath:  buildArtifactPath(id, name, "verificador"),
+				}
+			}
+		}
+	}
+
+	// 3. Filtrar coincidencias por ID, Name o CanonicalName
+	var matches []TaskInfo
+	for _, t := range tasksMap {
+		if t.ID == q || t.Name == q || t.CanonicalName == q {
+			matches = append(matches, t)
+		}
+	}
+
+	if len(matches) == 0 {
+		return TaskInfo{}, fmt.Errorf("tarea no encontrada: '%s'", query)
+	}
+	if len(matches) > 1 {
+		var candidates []string
+		for _, m := range matches {
+			candidates = append(candidates, m.CanonicalName)
+		}
+		return TaskInfo{}, fmt.Errorf("identificador ambiguo: '%s' coincide con multiples tareas (%s)", query, strings.Join(candidates, ", "))
+	}
+
+	t := matches[0]
+	if t.SpecPath == "" {
+		t.SpecPath = buildArtifactPath(t.ID, t.Name, "spec")
+	}
+	t.PlanPath = buildArtifactPath(t.ID, t.Name, "plan")
+	t.VerifierPath = buildArtifactPath(t.ID, t.Name, "verificador")
+
+	return t, nil
+}
+
 // 1. seb spec-next <nombre_tarea>
 func cmdSpecNext(db *sql.DB, args []string) {
 	start := time.Now()
@@ -224,13 +330,13 @@ func cmdSpecNext(db *sql.DB, args []string) {
 	}
 
 	nextID := fmt.Sprintf("%03d", maxID+1)
-	specPath := filepath.Join("specs", fmt.Sprintf("%s_%s_spec.md", nextID, taskName))
+	specPath := buildArtifactPath(nextID, taskName, "spec")
 
 	// 2. Sincronizar idempotentemente la base de datos local
 	_, err := db.Exec(`
 		INSERT INTO tasks (id, name, spec_path, status)
 		VALUES (?, ?, ?, 'SPECIFIED')
-		ON CONFLICT(name) DO UPDATE SET spec_path=excluded.spec_path`,
+		ON CONFLICT(id) DO UPDATE SET name=excluded.name, spec_path=excluded.spec_path`,
 		nextID, taskName, specPath)
 	if err != nil {
 		fatal("Error sincronizando tarea en SQLite: %v", err)
@@ -245,99 +351,94 @@ func cmdSpecNext(db *sql.DB, args []string) {
 func cmdPlanLock(db *sql.DB, args []string) {
 	start := time.Now()
 	if len(args) < 1 {
-		fatal("Uso: seb plan-lock <nombre_tarea>")
+		fatal("Uso: seb plan-lock <nombre_o_id_tarea>")
 	}
-	taskName := sanitizeName(args[0])
-
-	var id, specPath string
-	err := db.QueryRow(`SELECT id, spec_path FROM tasks WHERE name = ?`, taskName).Scan(&id, &specPath)
+	task, err := resolveTask(db, args[0])
 	if err != nil {
-		fatal("Tarea '%s' no encontrada en SQLite. Ejecuta primero seb spec-next.", taskName)
+		fatal("Error resolviendo tarea: %v", err)
 	}
 
 	// Verificar que la spec no tenga etiquetas [NECESITA ACLARACIÓN] pendientes
-	specBytes, err := os.ReadFile(specPath)
+	specBytes, err := os.ReadFile(task.SpecPath)
 	if err != nil {
-		fatal("No se pudo leer %s: %v", specPath, err)
+		fatal("No se pudo leer %s: %v", task.SpecPath, err)
 	}
 	if strings.Contains(string(specBytes), "[NECESITA ACLARACIÓN]") {
-		fatal("BLOQUEO SDD: La spec '%s' aún contiene etiquetas [NECESITA ACLARACIÓN]. Ejecuta el skill seb-clarificador antes de planificar.", specPath)
+		fatal("BLOQUEO SDD: La spec '%s' aún contiene etiquetas [NECESITA ACLARACIÓN]. Ejecuta el skill seb-clarificador antes de planificar.", task.SpecPath)
 	}
 
-	verifPath := filepath.Join("specs", fmt.Sprintf("%s_verificador.md", taskName))
-	checks, err := parseVerifierFile(verifPath)
+	checks, err := parseVerifierFile(task.VerifierPath)
 	if err != nil || len(checks) == 0 {
-		fatal("BLOQUEO SDD: '%s' no existe o no contiene comandos de verificación programática válidos.", verifPath)
+		fatal("BLOQUEO SDD: '%s' no existe o no contiene comandos de verificación programática válidos.", task.VerifierPath)
 	}
 
-	specHash, _ := fileSHA256(specPath)
-	verifHash, _ := fileSHA256(verifPath)
+	specHash, _ := fileSHA256(task.SpecPath)
+	verifHash, _ := fileSHA256(task.VerifierPath)
 
-	// Guardar hashes en seb.lock versionado por Git
+	// Guardar hashes en seb.lock versionado por Git con clave canonica
 	lock := readLockFile()
-	lock.Tasks[taskName] = TaskLock{
+	lock.Tasks[task.CanonicalName] = TaskLock{
 		SpecHash:     specHash,
 		VerifierHash: verifHash,
 	}
 	writeLockFile(lock)
 
-	// Marcar la tarea como activa para el pre-commit hook
-	setActiveTask(taskName)
+	// Marcar la tarea como activa para el pre-commit hook con clave canonica
+	setActiveTask(task.CanonicalName)
 
 	// Actualizar estado en SQLite (solo para observabilidad local)
-	_, _ = db.Exec(`UPDATE tasks SET status = 'PLANNED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id)
+	_, _ = db.Exec(`UPDATE tasks SET status = 'PLANNED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, task.ID)
 
 	dur := time.Since(start).Milliseconds()
-	logInternalAction(db, id, "seb-planificador", "plan-lock", taskName, fmt.Sprintf("checks=%d", len(checks)), dur, 0)
-	fmt.Printf("[seb-harness] Plan sellado en .seb/seb.lock y marcado como activo para '%s'.\n", taskName)
+	logInternalAction(db, task.ID, "seb-planificador", "plan-lock", task.CanonicalName, fmt.Sprintf("checks=%d", len(checks)), dur, 0)
+	fmt.Printf("[seb-harness] Plan sellado en .seb/seb.lock y marcado como activo para '%s'.\n", task.CanonicalName)
 }
 
 // 3. seb verify <nombre_tarea>
 func cmdVerify(db *sql.DB, args []string) {
 	startVerify := time.Now()
 	if len(args) < 1 {
-		fatal("Uso: seb verify <nombre_tarea>")
+		fatal("Uso: seb verify <nombre_o_id_tarea>")
 	}
-	taskName := sanitizeName(args[0])
-
-	var id, specPath string
-	err := db.QueryRow(`SELECT id, spec_path FROM tasks WHERE name = ?`, taskName).Scan(&id, &specPath)
+	task, err := resolveTask(db, args[0])
 	if err != nil {
-		fatal("Tarea '%s' no registrada en SQLite.", taskName)
+		fatal("Error resolviendo tarea: %v", err)
 	}
-
-	verifPath := filepath.Join("specs", fmt.Sprintf("%s_verificador.md", taskName))
 
 	// Control de Integridad Anti-Reward-Hacking
 	// Leer hashes desde seb.lock versionado por Git
 	lock := readLockFile()
-	taskLock, exists := lock.Tasks[taskName]
+	taskLock, exists := lock.Tasks[task.CanonicalName]
+	if !exists {
+		// Fallback para claves previas sin prefijo durante transicion
+		taskLock, exists = lock.Tasks[task.Name]
+	}
 
 	if exists {
 		if taskLock.SpecHash != "" {
-			currentSpecHash, _ := fileSHA256(specPath)
+			currentSpecHash, _ := fileSHA256(task.SpecPath)
 			if currentSpecHash != taskLock.SpecHash {
-				fatal("VIOLACIÓN DE INTEGRIDAD (Anti-Reward-Hacking): '%s' modificado.", specPath)
+				fatal("VIOLACIÓN DE INTEGRIDAD (Anti-Reward-Hacking): '%s' modificado.", task.SpecPath)
 			}
 		}
 		if taskLock.VerifierHash != "" {
-			currentVerifHash, _ := fileSHA256(verifPath)
+			currentVerifHash, _ := fileSHA256(task.VerifierPath)
 			if currentVerifHash != taskLock.VerifierHash {
-				fatal("VIOLACIÓN DE INTEGRIDAD (Anti-Reward-Hacking): '%s' modificado.", verifPath)
+				fatal("VIOLACIÓN DE INTEGRIDAD (Anti-Reward-Hacking): '%s' modificado.", task.VerifierPath)
 			}
 		}
 	}
 
-	checks, err := parseVerifierFile(verifPath)
+	checks, err := parseVerifierFile(task.VerifierPath)
 	if err != nil || len(checks) == 0 {
-		fatal("No se encontraron controles ejecutables en %s: %v", verifPath, err)
+		fatal("No se encontraron controles ejecutables en %s: %v", task.VerifierPath, err)
 	}
 
 	commitHash := currentGitCommit()
 	passed := 0
 	failed := 0
 
-	fmt.Printf("## Reporte de Verificación Determinista: `%s` (Spec `%s`)\n\n", taskName, id)
+	fmt.Printf("## Reporte de Verificación Determinista: `%s` (Spec `%s`)\n\n", task.CanonicalName, task.ID)
 	fmt.Println("| Check ID | Requisito | Estado | Tiempo (ms) | Comando |")
 	fmt.Println("| :--- | :--- | :--- | :--- | :--- |")
 
@@ -364,15 +465,15 @@ func cmdVerify(db *sql.DB, args []string) {
 
 		_, _ = db.Exec(`INSERT INTO verifications (task_id, check_id, req_id, command, status, exit_code, duration_ms, output_snippet, commit_hash)
 			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			id, c.ID, c.ReqID, c.Command, status, exitCode, duration, output, commitHash)
+			task.ID, c.ID, c.ReqID, c.Command, status, exitCode, duration, output, commitHash)
 	}
 
 	fmt.Printf("\n**Resumen de Cobertura:** %d/%d controles en `[PASA]`, %d en `[FALLA]`.\n", passed, len(checks), failed)
 
 	durVerify := time.Since(startVerify).Milliseconds()
 	if failed > 0 {
-		logInternalAction(db, id, "seb-verificador", "verify", taskName, fmt.Sprintf("passed=%d failed=%d", passed, failed), durVerify, 2)
-		_, _ = db.Exec(`UPDATE tasks SET status = 'FAILED_VERIFICATION', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id)
+		logInternalAction(db, task.ID, "seb-verificador", "verify", task.CanonicalName, fmt.Sprintf("passed=%d failed=%d", passed, failed), durVerify, 2)
+		_, _ = db.Exec(`UPDATE tasks SET status = 'FAILED_VERIFICATION', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, task.ID)
 		fmt.Println(failureDetails.String())
 		fmt.Println("\n**VEREDICTO:** `PENDIENTE DE IMPLEMENTACIÓN` — Corrige el código de aplicación sin alterar `*_verificador.md`.")
 		os.Exit(2)
@@ -380,8 +481,8 @@ func cmdVerify(db *sql.DB, args []string) {
 
 	// Liberar el hook pre-commit porque la tarea pasó la verificación
 	clearActiveTask()
-	logInternalAction(db, id, "seb-verificador", "verify", taskName, fmt.Sprintf("passed=%d failed=%d", passed, failed), durVerify, 0)
-	_, _ = db.Exec(`UPDATE tasks SET status = 'VERIFIED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, id)
+	logInternalAction(db, task.ID, "seb-verificador", "verify", task.CanonicalName, fmt.Sprintf("passed=%d failed=%d", passed, failed), durVerify, 0)
+	_, _ = db.Exec(`UPDATE tasks SET status = 'VERIFIED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, task.ID)
 	fmt.Println("\n**VEREDICTO:** `APROBADO` — Todos los controles deterministas pasaron con éxito.")
 }
 
@@ -519,12 +620,13 @@ func cmdStatus(db *sql.DB, args []string) {
 	}
 	defer rows.Close()
 
-	fmt.Println("| ID | Tarea | Estado SDD | Archivo Spec | Última Actualización |")
+	fmt.Println("| ID | Clave Canónica | Estado SDD | Archivo Spec | Última Actualización |")
 	fmt.Println("| :--- | :--- | :--- | :--- | :--- |")
 	for rows.Next() {
 		var id, name, status, specPath, updated string
 		_ = rows.Scan(&id, &name, &status, &specPath, &updated)
-		fmt.Printf("| `%s` | `%s` | **%s** | `%s` | %s |\n", id, name, status, specPath, updated)
+		canonical := fmt.Sprintf("%s_%s", id, name)
+		fmt.Printf("| `%s` | `%s` | **%s** | `%s` | %s |\n", id, canonical, status, specPath, updated)
 	}
 }
 
@@ -666,7 +768,7 @@ func resolveActiveTask(explicitTask, envTask string, activeTaskPath string, db *
 			if task != "" {
 				if db != nil {
 					var id string
-					err := db.QueryRow(`SELECT id FROM tasks WHERE name = ? OR id = ?`, task, task).Scan(&id)
+					err := db.QueryRow(`SELECT id FROM tasks WHERE name = ? OR id = ? OR (id || '_' || name) = ?`, task, task, task).Scan(&id)
 					if err == nil && id != "" {
 						return id
 					}

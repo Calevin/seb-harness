@@ -1,7 +1,7 @@
 # Plan Técnico — <nombre_tarea> (Spec <NNN>)
 
 - **Spec Origen:** `specs/<NNN>_<nombre_tarea>_spec.md`
-- **Verificador Asociado:** `specs/<nombre_tarea>_verificador.md`
+- **Verificador Asociado:** `specs/<NNN>_<nombre_tarea>_verificador.md`
 - **Estado:** `PLANIFICADO`
 
 ## 1. Resumen Arquitectónico y Aislamiento de Lógica
@@ -30,7 +30,7 @@ _Regla para el Agente Implementador: Ejecuta UNA tarea a la vez en orden de depe
 
 - [ ] **T1. <Descripción 20-30 atómica de min máximo>** (`RF-XX`)
   - _Archivos:_ `...`
-  - _Hecho cuando:_ El comando `CHK-01` de `<nombre_tarea>_verificador.md` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `CHK-01` de `specs/<NNN>_<nombre_tarea>_verificador.md` devuelve exit code `0`.
 - [ ] **T2. <Descripción atómica>** (`RF-YY`)
   - _Archivos:_ `...`
-  - _Hecho cuando:_ El comando `CHK-02` de `<nombre_tarea>_verificador.md` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `CHK-02` de `specs/<NNN>_<nombre_tarea>_verificador.md` devuelve exit code `0`.

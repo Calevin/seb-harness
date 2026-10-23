@@ -7,9 +7,9 @@
 > - **Invariante del Agente:** Antes de proponer un diseño en `seb-planificador` o escribir código, verifica las secciones 2 y 3 para no reintentar enfoques fallidos.
 
 ## 1. Estado Actual del Proyecto
-- **Fase SDD activa:** Constitución completada (`docs/constitution.md` generada y activa).
-- **Última Spec verificada:** Ninguna.
-- **Estado de la suite de verificación:** Pendiente de primera spec. Motor Go validado (`go vet` y `go test` limpios).
+- **Fase SDD activa:** Implementación y verificación completadas para Spec 002.
+- **Última Spec verificada:** 002 (`002_prefijo_secuencial_artefactos`).
+- **Estado de la suite de verificación:** Motor Go validado (100% de controles en `[PASA]`, `go vet` y tests limpios).
 
 ## 2. Callejones sin Salida y Enfoques Descartados (NO REINTENTAR)
 *Registro de librerías, patrones o configuraciones que se probaron en este proyecto y fallaron o resultaron incompatibles.*
@@ -27,3 +27,4 @@
 ## 5. Decisiones Técnicas Relevantes (Histórico Reciente)
 - `[D-01] Adopción de pure Go SQLite (modernc.org/sqlite) -> CGO SQLite (mattn/go-sqlite3) -> Eliminar necesidad de toolchain C en NixOS/cross-compilation.`
 - `[D-02] Telemetría dual e híbrida -> Captura solo vía bash hooks -> Centralización de cascada de tarea activa en Go, cronometraje de comandos internos, soporte de archivos usage.jsonl y cálculo de costos con .seb/config.json.`
+- `[D-03] Homogeneización de Nomenclatura SDD -> Estandarización de prefijo secuencial <NNN>_ en spec, plan y verificador. Clave canónica <NNN>_<tarea> en seb.lock y resolución flexible (ID, nombre simple, canónico) en CLI con rechazo de ambigüedad.`

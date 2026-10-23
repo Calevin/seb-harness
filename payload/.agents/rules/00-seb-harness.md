@@ -21,11 +21,11 @@ Operas bajo el control de **`seb-harness`**. Estas restricciones son acumulativa
 
 ## 3. Verificación Programática Obligatoria
 - Ninguna tarea se considera terminada por inspección visual o porque "el código parece correcto".
-- Todo requisito funcional (`RF-XX`) especificado en `specs/<NNN>_<tarea>_spec.md` debe estar respaldado por al menos un comando ejecutable con código de salida determinista (`0` = éxito) dentro de `specs/<tarea>_verificador.md`.
+- Todo requisito funcional (`RF-XX`) especificado en `specs/<NNN>_<tarea>_spec.md` debe estar respaldado por al menos un comando ejecutable con código de salida determinista (`0` = éxito) dentro de `specs/<NNN>_<tarea>_verificador.md`.
 - La única fuente de verdad para declarar una tarea como completada es la salida del comando `.seb/bin/seb verify <tarea>` ejecutado por el skill `seb-verificador`.
 
 ## 4. Trazabilidad y Menor Privilegio
 - Respeta estrictamente el alcance del skill activo:
   - Si estás ejecutando `seb-especificador` o `seb-clarificador`, **nunca** modifiques archivos de código fuente ni de configuración del proyecto; limita tu escritura a `specs/<NNN>_<tarea>_spec.md` y `@MEMORY.md`.
-  - Si estás ejecutando `seb-planificador`, limita tu escritura a `specs/<tarea>_plan.md`, `specs/<tarea>_verificador.md` y `@MEMORY.md`. Si detectas un solo requisito no verificable programáticamente, aborta la creación del plan.
+  - Si estás ejecutando `seb-planificador`, limita tu escritura a `specs/<NNN>_<tarea>_plan.md`, `specs/<NNN>_<tarea>_verificador.md` y `@MEMORY.md`. Si detectas un solo requisito no verificable programáticamente, aborta la creación del plan.
 - Usa las herramientas del binario `.seb/bin/seb` para cualquier operación de secuencia de specs, verificación o reporte de auditoría para garantizar que el rastro quede grabado en `.seb/seb-audit.db`.
