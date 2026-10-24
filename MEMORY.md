@@ -7,8 +7,8 @@
 > - **Invariante del Agente:** Antes de proponer un diseño en `seb-planificador` o escribir código, verifica las secciones 2 y 3 para no reintentar enfoques fallidos.
 
 ## 1. Estado Actual del Proyecto
-- **Fase SDD activa:** Implementación y verificación completadas para Spec 002.
-- **Última Spec verificada:** 002 (`002_prefijo_secuencial_artefactos`).
+- **Fase SDD activa:** Implementación y verificación completadas para Spec 004.
+- **Última Spec verificada:** 004 (`004_captura_telemetria_antigravity`).
 - **Estado de la suite de verificación:** Motor Go validado (100% de controles en `[PASA]`, `go vet` y tests limpios).
 
 ## 2. Callejones sin Salida y Enfoques Descartados (NO REINTENTAR)

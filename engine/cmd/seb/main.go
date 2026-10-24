@@ -104,6 +104,8 @@ func main() {
 		cmdGuard(db, args)
 	case "audit":
 		cmdAudit(db, args)
+	case "hook":
+		cmdHook(db, args)
 	default:
 		printUsage()
 		os.Exit(1)
@@ -156,9 +158,11 @@ func initDBSchema(db *sql.DB) error {
 		level TEXT NOT NULL DEFAULT 'autonomous',
 		duration_ms INTEGER DEFAULT 0,
 		tokens_in INTEGER DEFAULT 0,
+		cache_read_tokens INTEGER DEFAULT 0,
 		tokens_out INTEGER DEFAULT 0,
 		cost_usd REAL DEFAULT 0.0,
 		exit_code INTEGER DEFAULT 0,
+		step_idx INTEGER DEFAULT -1,
 		timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
 	);
 
@@ -181,8 +185,48 @@ func initDBSchema(db *sql.DB) error {
 	);
 	CREATE INDEX IF NOT EXISTS idx_verif_task_ts ON verifications(task_id, timestamp);
 	`
-	_, err := db.Exec(schema)
-	return err
+	if _, err := db.Exec(schema); err != nil {
+		return err
+	}
+	return migrateDBSchema(db)
+}
+
+func migrateDBSchema(db *sql.DB) error {
+	rows, err := db.Query(`PRAGMA table_info(agent_actions)`)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+
+	hasCacheRead := false
+	hasStepIdx := false
+	for rows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull int
+		var dflt sql.NullString
+		var pk int
+		if err := rows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err == nil {
+			if name == "cache_read_tokens" {
+				hasCacheRead = true
+			}
+			if name == "step_idx" {
+				hasStepIdx = true
+			}
+		}
+	}
+
+	if !hasCacheRead {
+		if _, err := db.Exec(`ALTER TABLE agent_actions ADD COLUMN cache_read_tokens INTEGER DEFAULT 0`); err != nil {
+			return err
+		}
+	}
+	if !hasStepIdx {
+		if _, err := db.Exec(`ALTER TABLE agent_actions ADD COLUMN step_idx INTEGER DEFAULT -1`); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func openDB() (*sql.DB, error) {
@@ -649,6 +693,7 @@ func cmdAudit(db *sql.DB, args []string) {
 		level := fs.String("level", "autonomous", "Nivel (autonomous|supervised|always_human)")
 		duration := fs.Int64("duration-ms", 0, "Duración en milisegundos")
 		tokensIn := fs.Int64("tokens-in", 0, "Tokens de entrada")
+		cacheRead := fs.Int64("cache-read-tokens", 0, "Tokens leídos de caché")
 		tokensOut := fs.Int64("tokens-out", 0, "Tokens de salida")
 		costUSD := fs.Float64("cost-usd", 0.0, "Costo estimado en USD")
 		model := fs.String("model", os.Getenv("SEB_MODEL"), "Modelo de lenguaje")
@@ -667,9 +712,9 @@ func cmdAudit(db *sql.DB, args []string) {
 		finalCost := calculateCost(*costUSD, *model, *tokensIn, *tokensOut, ".seb/config.json")
 
 		_, err := db.Exec(`INSERT INTO agent_actions
-			(session_id, task_id, agent, skill, action, parameters, result_summary, level, duration_ms, tokens_in, tokens_out, cost_usd, exit_code)
-			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-			*sessionID, resolvedTask, *agent, *skill, *action, *params, *result, *level, normDuration, *tokensIn, *tokensOut, finalCost, *exitCode)
+			(session_id, task_id, agent, skill, action, parameters, result_summary, level, duration_ms, tokens_in, cache_read_tokens, tokens_out, cost_usd, exit_code)
+			VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+			*sessionID, resolvedTask, *agent, *skill, *action, *params, *result, *level, normDuration, *tokensIn, *cacheRead, *tokensOut, finalCost, *exitCode)
 		if err != nil {
 			fatal("Error insertando audit log: %v", err)
 		}
@@ -692,51 +737,58 @@ func cmdAudit(db *sql.DB, args []string) {
 		fmt.Printf("[seb-harness] %d registros importados exitosamente desde %s.\n", count, filePath)
 
 	case "report":
-		fmt.Println("## 📊 Audit Trail & Observabilidad (`seb-harness`)")
-		fmt.Println("\n### 1. Métricas por Tarea / Caso (Latencia, Tokens y Coste)")
-		rows, err := db.Query(`
-			SELECT COALESCE(NULLIF(task_id, ''), 'global'),
-			       COUNT(*),
-			       SUM(duration_ms),
-			       SUM(tokens_in),
-			       SUM(tokens_out),
-			       ROUND(SUM(cost_usd), 5)
-			FROM agent_actions
-			GROUP BY COALESCE(NULLIF(task_id, ''), 'global')
-			ORDER BY 1 ASC`)
-		if err != nil {
-			fatal("Error generando reporte: %v", err)
-		}
-		defer rows.Close()
+		fmt.Print(renderAuditReport(db))
+	}
+}
 
-		fmt.Println("| Caso / Task ID | Llamadas a Tools | Latencia Total (ms) | Tokens In | Tokens Out | Coste Acumulado (USD) |")
-		fmt.Println("| :--- | :--- | :--- | :--- | :--- | :--- |")
-		for rows.Next() {
-			var task string
-			var calls int
-			var dur, tIn, tOut int64
+func renderAuditReport(db *sql.DB) string {
+	var b strings.Builder
+	b.WriteString("## 📊 Audit Trail & Observabilidad (`seb-harness`)\n\n")
+	b.WriteString("### 1. Métricas por Tarea / Caso (Latencia, Tokens y Coste)\n")
+	rows, err := db.Query(`
+		SELECT COALESCE(NULLIF(task_id, ''), 'global'),
+		       COUNT(*),
+		       COALESCE(SUM(duration_ms), 0),
+		       COALESCE(SUM(tokens_in), 0),
+		       COALESCE(SUM(cache_read_tokens), 0),
+		       COALESCE(SUM(tokens_out), 0),
+		       ROUND(COALESCE(SUM(cost_usd), 0.0), 5)
+		FROM agent_actions
+		GROUP BY COALESCE(NULLIF(task_id, ''), 'global')
+		ORDER BY 1 ASC`)
+	if err != nil {
+		fatal("Error generando reporte: %v", err)
+	}
+	defer rows.Close()
+
+	b.WriteString("| Caso / Task ID | Llamadas a Tools | Latencia Total (ms) | Tokens In | Cache Read | Tokens Out | Coste Acumulado (USD) |\n")
+	b.WriteString("| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n")
+	for rows.Next() {
+		var task string
+		var calls int
+		var dur, tIn, tCache, tOut int64
+		var cost float64
+		_ = rows.Scan(&task, &calls, &dur, &tIn, &tCache, &tOut, &cost)
+		b.WriteString(fmt.Sprintf("| `%s` | %d | %d ms | %d | %d | %d | $%.5f |\n", task, calls, dur, tIn, tCache, tOut, cost))
+	}
+
+	b.WriteString("\n### 2. Últimas 10 Acciones Registradas\n")
+	recent, err := db.Query(`
+		SELECT timestamp, agent, COALESCE(NULLIF(skill,''), '-'), action, duration_ms, tokens_in+tokens_out, cache_read_tokens, cost_usd, exit_code
+		FROM agent_actions ORDER BY id DESC LIMIT 10`)
+	if err == nil {
+		defer recent.Close()
+		b.WriteString("| Timestamp | Agente | Skill | Acción / Tool | Latencia | Tokens (In+Out) | Cache Read | Costo USD | Exit |\n")
+		b.WriteString("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n")
+		for recent.Next() {
+			var ts, ag, sk, act string
+			var dur, tok, cache, code int64
 			var cost float64
-			_ = rows.Scan(&task, &calls, &dur, &tIn, &tOut, &cost)
-			fmt.Printf("| `%s` | %d | %d ms | %d | %d | $%.5f |\n", task, calls, dur, tIn, tOut, cost)
-		}
-
-		fmt.Println("\n### 2. Últimas 10 Acciones Registradas")
-		recent, err := db.Query(`
-			SELECT timestamp, agent, COALESCE(NULLIF(skill,''), '-'), action, duration_ms, tokens_in+tokens_out, cost_usd, exit_code
-			FROM agent_actions ORDER BY id DESC LIMIT 10`)
-		if err == nil {
-			defer recent.Close()
-			fmt.Println("| Timestamp | Agente | Skill | Acción / Tool | Latencia | Tokens | Costo USD | Exit |")
-			fmt.Println("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
-			for recent.Next() {
-				var ts, ag, sk, act string
-				var dur, tok, code int64
-				var cost float64
-				_ = recent.Scan(&ts, &ag, &sk, &act, &dur, &tok, &cost, &code)
-				fmt.Printf("| %s | `%s` | `%s` | `%s` | %d ms | %d | $%.5f | %d |\n", ts, ag, sk, act, dur, tok, cost, code)
-			}
+			_ = recent.Scan(&ts, &ag, &sk, &act, &dur, &tok, &cache, &cost, &code)
+			b.WriteString(fmt.Sprintf("| %s | `%s` | `%s` | `%s` | %d ms | %d | %d | $%.5f | %d |\n", ts, ag, sk, act, dur, tok, cache, cost, code))
 		}
 	}
+	return b.String()
 }
 
 func logInternalAction(db *sql.DB, taskID, skill, action, params, result string, durationMs int64, exitCode int) {
@@ -961,4 +1013,498 @@ func setActiveTask(taskName string) {
 
 func clearActiveTask() {
 	_ = os.Remove(".seb/ACTIVE_TASK")
+}
+
+// HookPayload modela el contrato JSON camelCase enviado por Antigravity en stdin
+type HookPayload struct {
+	ConversationID        string       `json:"conversationId"`
+	WorkspacePaths        []string     `json:"workspacePaths"`
+	TranscriptPath        string       `json:"transcriptPath"`
+	ArtifactDirectoryPath string       `json:"artifactDirectoryPath"`
+	ModelName             string       `json:"modelName"`
+	StepIdx               *int         `json:"stepIdx"`
+	ToolCall              *HookTool    `json:"toolCall"`
+	Error                 string       `json:"error"`
+	ExecutionNum          int          `json:"executionNum"`
+	TerminationReason     string       `json:"terminationReason"`
+}
+
+type HookTool struct {
+	Name string                 `json:"name"`
+	Args map[string]interface{} `json:"args"`
+}
+
+type TranscriptStep struct {
+	StepIndex       int        `json:"step_index"`
+	Type            string     `json:"type"`
+	InputTokens     int64      `json:"input_tokens"`
+	CacheReadTokens int64      `json:"cache_read_tokens"`
+	OutputTokens    int64      `json:"output_tokens"`
+	ToolCalls       []HookTool `json:"tool_calls"`
+}
+
+// 8. seb hook <pre-tool|post-tool|stop>
+func cmdHook(db *sql.DB, args []string) {
+	if len(args) < 1 {
+		fmt.Println("{}")
+		return
+	}
+	sub := args[0]
+	var payload []byte
+	if stat, err := os.Stdin.Stat(); err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
+		payload, _ = io.ReadAll(os.Stdin)
+	}
+	cwd, _ := os.Getwd()
+	envSkill := os.Getenv("SEB_SKILL")
+
+	switch sub {
+	case "pre-tool":
+		out, _ := processHookPreTool(db, payload, envSkill, ".seb/ACTIVE_TASK", cwd)
+		fmt.Println(out)
+	case "post-tool":
+		out, _ := processHookPostTool(db, payload, envSkill, ".seb/ACTIVE_TASK", cwd, ".seb/config.json")
+		fmt.Println(out)
+	case "stop":
+		out, _ := processHookStop(db, payload, envSkill, ".seb/ACTIVE_TASK", cwd, ".seb/config.json")
+		fmt.Println(out)
+	default:
+		fmt.Println("{}")
+	}
+}
+
+var absPathTokenRegex = regexp.MustCompile(`(/[A-Za-z0-9._-]+(?:/[A-Za-z0-9._-]+)+)`)
+
+func sanitizeStringValue(val string, workspaceRoot string) string {
+	wsClean := ""
+	if workspaceRoot != "" {
+		wsClean = filepath.Clean(workspaceRoot)
+	}
+
+	s := strings.TrimSpace(val)
+	// Quitar comillas escapadas o envolventes si provienen de JSON anidado
+	sUnquoted := strings.Trim(s, `"`)
+
+	// Si el valor entero parece una ruta absoluta
+	if strings.HasPrefix(sUnquoted, "/") && !strings.ContainsAny(sUnquoted, " \t\n") {
+		cleaned := filepath.Clean(sUnquoted)
+		if wsClean != "" && (cleaned == wsClean || strings.HasPrefix(cleaned, wsClean+"/")) {
+			rel, err := filepath.Rel(wsClean, cleaned)
+			if err == nil {
+				s = rel
+			}
+		} else {
+			s = "<EXTERNAL_PATH>/" + filepath.Base(cleaned)
+		}
+	} else {
+		// Reemplazar rutas absolutas embebidas dentro de comandos o mensajes
+		s = absPathTokenRegex.ReplaceAllStringFunc(val, func(match string) string {
+			cleaned := filepath.Clean(match)
+			if wsClean != "" && (cleaned == wsClean || strings.HasPrefix(cleaned, wsClean+"/")) {
+				if rel, err := filepath.Rel(wsClean, cleaned); err == nil {
+					return rel
+				}
+			}
+			return "<EXTERNAL_PATH>/" + filepath.Base(cleaned)
+		})
+	}
+
+	if len(s) > 256 {
+		s = s[:256] + "...[TRUNCATED]"
+	}
+	return s
+}
+
+func sanitizeValueRecursive(v interface{}, workspaceRoot string) interface{} {
+	switch val := v.(type) {
+	case string:
+		return sanitizeStringValue(val, workspaceRoot)
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(val))
+		for k, elem := range val {
+			out[k] = sanitizeValueRecursive(elem, workspaceRoot)
+		}
+		return out
+	case []interface{}:
+		out := make([]interface{}, len(val))
+		for i, elem := range val {
+			out[i] = sanitizeValueRecursive(elem, workspaceRoot)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+// sanitizeToolParams transforma rutas del workspace en relativas, enmascara externas y trunca > 256 chars
+func sanitizeToolParams(args map[string]interface{}, workspaceRoot string) string {
+	if len(args) == 0 {
+		return "{}"
+	}
+	sanitized := sanitizeValueRecursive(args, workspaceRoot)
+	b, err := json.Marshal(sanitized)
+	if err != nil {
+		return "{}"
+	}
+	return string(b)
+}
+
+var skillPathRegex = regexp.MustCompile(`\.agents/skills/([A-Za-z0-9_-]+)/SKILL\.md`)
+
+// inferActiveSkill determina la habilidad activa desde variable de entorno o transcriptPath
+func inferActiveSkill(envSkill, transcriptPath, activeTaskPath string) string {
+	if strings.TrimSpace(envSkill) != "" {
+		return strings.TrimSpace(envSkill)
+	}
+
+	hasActiveLockedTask := false
+	if activeTaskPath != "" {
+		if data, err := os.ReadFile(activeTaskPath); err == nil && strings.TrimSpace(string(data)) != "" {
+			hasActiveLockedTask = true
+		}
+	}
+
+	lastSkill := ""
+	if transcriptPath != "" {
+		if f, err := os.Open(transcriptPath); err == nil {
+			defer f.Close()
+			scanner := bufio.NewScanner(f)
+			// Ampliar buffer por si hay lineas largas en transcript.jsonl
+			buf := make([]byte, 0, 64*1024)
+			scanner.Buffer(buf, 2*1024*1024)
+			for scanner.Scan() {
+				line := scanner.Text()
+				if !strings.Contains(line, "SKILL.md") {
+					continue
+				}
+				var step TranscriptStep
+				if err := json.Unmarshal([]byte(line), &step); err == nil && step.Type == "PLANNER_RESPONSE" {
+					for _, tc := range step.ToolCalls {
+						b, _ := json.Marshal(tc.Args)
+						if m := skillPathRegex.FindStringSubmatch(string(b)); len(m) == 2 {
+							lastSkill = m[1]
+						}
+					}
+				} else if m := skillPathRegex.FindStringSubmatch(line); len(m) == 2 {
+					lastSkill = m[1]
+				}
+			}
+		}
+	}
+
+	if lastSkill == "" {
+		return "implementador"
+	}
+	if hasActiveLockedTask && lastSkill == "seb-planificador" {
+		return "implementador"
+	}
+	return lastSkill
+}
+
+func extractTargetAndCommand(tc *HookTool, workspaceRoot string) (string, string) {
+	if tc == nil || len(tc.Args) == 0 {
+		return "", ""
+	}
+	var targetPath, cmdStr string
+	for k, v := range tc.Args {
+		s, ok := v.(string)
+		if !ok {
+			continue
+		}
+		s = strings.Trim(s, `"`)
+		kl := strings.ToLower(k)
+		if kl == "path" || kl == "file_path" || kl == "targetfile" || kl == "filepath" {
+			targetPath = s
+		}
+		if kl == "commandline" || kl == "command" || kl == "cmd" {
+			cmdStr = s
+		}
+	}
+	if targetPath != "" && workspaceRoot != "" {
+		wsClean := filepath.Clean(workspaceRoot)
+		tpClean := filepath.Clean(targetPath)
+		if strings.HasPrefix(tpClean, wsClean+"/") {
+			if rel, err := filepath.Rel(wsClean, tpClean); err == nil {
+				targetPath = rel
+			}
+		}
+	}
+	return targetPath, cmdStr
+}
+
+func timerFilePath(sessionID string, stepIdx int, toolName string) string {
+	safeSess := sanitizeName(sessionID)
+	safeTool := sanitizeName(toolName)
+	return fmt.Sprintf("/tmp/seb_timer_%s_%d_%s", safeSess, stepIdx, safeTool)
+}
+
+var dangerousCmdRegex = regexp.MustCompile(`(rm\s+-rf\s+/|git\s+commit.*--no-verify|git\s+push.*--force|chmod\s+777)`)
+var shellRedirectContractRegex = regexp.MustCompile(`(>|tee|sed\s+-i).*(constitution\.md|_spec\.md|_verificador\.md)`)
+
+// processHookPreTool ejecuta la logica de PreToolUse y devuelve el contrato JSON
+func processHookPreTool(db *sql.DB, payloadBytes []byte, envSkill, activeTaskPath, workspaceRoot string) (string, error) {
+	var p HookPayload
+	if len(payloadBytes) > 0 {
+		_ = json.Unmarshal(payloadBytes, &p)
+	}
+	if len(p.WorkspacePaths) > 0 && p.WorkspacePaths[0] != "" {
+		workspaceRoot = p.WorkspacePaths[0]
+	}
+
+	sessionID := p.ConversationID
+	if sessionID == "" {
+		sessionID = "local-" + time.Now().Format("20060102")
+	}
+	stepIdx := 0
+	if p.StepIdx != nil {
+		stepIdx = *p.StepIdx
+	}
+	toolName := "unknown"
+	if p.ToolCall != nil && p.ToolCall.Name != "" {
+		toolName = p.ToolCall.Name
+	}
+
+	// Guardar timestamp de inicio en milisegundos
+	tFile := timerFilePath(sessionID, stepIdx, toolName)
+	_ = os.WriteFile(tFile, []byte(fmt.Sprintf("%d", time.Now().UnixMilli())), 0644)
+
+	activeRole := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath)
+	targetPath, cmdStr := extractTargetAndCommand(p.ToolCall, workspaceRoot)
+
+	// 1. Bloqueo de archivos sensibles
+	if targetPath != "" {
+		base := filepath.Base(targetPath)
+		if base == ".env" || strings.HasPrefix(base, ".env.") || strings.Contains(base, "id_rsa") ||
+			strings.Contains(base, "id_ed25519") || strings.HasSuffix(base, ".pem") || strings.HasSuffix(base, ".key") {
+			return marshalHookDecision("deny", fmt.Sprintf("[seb-harness BLOQUEO DE SEGURIDAD] Acceso denegado al archivo sensible: %s", base)), nil
+		}
+	}
+
+	// 2. Bloqueo de comandos destructivos o evasion
+	if cmdStr != "" {
+		if dangerousCmdRegex.MatchString(cmdStr) {
+			return marshalHookDecision("deny", "[seb-harness BLOQUEO DE SEGURIDAD] Comando peligroso o evasion de verificacion detectada."), nil
+		}
+		if activeRole == "implementador" || activeRole == "" {
+			if shellRedirectContractRegex.MatchString(cmdStr) {
+				return marshalHookDecision("deny", "[seb-harness ANTI-REWARD-HACKING] Prohibido modificar contratos SDD mediante comandos de shell."), nil
+			}
+		}
+	}
+
+	// 3. Verificacion de Menor Privilegio en herramientas de escritura
+	if targetPath != "" {
+		tl := strings.ToLower(toolName)
+		if strings.Contains(tl, "write") || strings.Contains(tl, "edit") || strings.Contains(tl, "patch") ||
+			strings.Contains(tl, "create") || strings.Contains(tl, "replace") || strings.Contains(tl, "save") {
+			if !checkPermission(activeRole, "write", filepath.Clean(targetPath)) {
+				if db != nil {
+					logInternalAction(db, "", activeRole, "guard-blocked:write", targetPath, "DENIED", 0, 1)
+				}
+				return marshalHookDecision("deny", fmt.Sprintf("GUARDARRAIL DE MENOR PRIVILEGIO: El rol '%s' NO tiene permiso de escritura sobre '%s'.", activeRole, targetPath)), nil
+			}
+		}
+	}
+
+	return marshalHookDecision("allow", ""), nil
+}
+
+func marshalHookDecision(decision, reason string) string {
+	resp := map[string]interface{}{
+		"decision": decision,
+	}
+	if reason != "" {
+		resp["reason"] = reason
+	}
+	b, _ := json.Marshal(resp)
+	return string(b)
+}
+
+// findPlannerStepMetrics busca el paso PLANNER_RESPONSE en transcript.jsonl cuyo step_index sea <= targetStepIdx (el mas cercano)
+func findPlannerStepMetrics(transcriptPath string, targetStepIdx int) (plannerStepIdx int, tokIn, cacheRead, tokOut int64, found bool) {
+	if transcriptPath == "" {
+		return -1, 0, 0, 0, false
+	}
+	f, err := os.Open(transcriptPath)
+	if err != nil {
+		return -1, 0, 0, 0, false
+	}
+	defer f.Close()
+
+	scanner := bufio.NewScanner(f)
+	buf := make([]byte, 0, 64*1024)
+	scanner.Buffer(buf, 2*1024*1024)
+
+	bestStep := -1
+	var bIn, bCache, bOut int64
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if !strings.Contains(line, "PLANNER_RESPONSE") {
+			continue
+		}
+		var st TranscriptStep
+		if err := json.Unmarshal([]byte(line), &st); err == nil && st.Type == "PLANNER_RESPONSE" {
+			if targetStepIdx <= 0 || st.StepIndex <= targetStepIdx {
+				if st.StepIndex >= bestStep {
+					bestStep = st.StepIndex
+					bIn = st.InputTokens
+					bCache = st.CacheReadTokens
+					bOut = st.OutputTokens
+				}
+			}
+		}
+	}
+
+	if bestStep >= 0 {
+		return bestStep, bIn, bCache, bOut, true
+	}
+	return -1, 0, 0, 0, false
+}
+
+// processHookPostTool ejecuta la logica de PostToolUse y devuelve "{}"
+func processHookPostTool(db *sql.DB, payloadBytes []byte, envSkill, activeTaskPath, workspaceRoot, configPath string) (string, error) {
+	nowMs := time.Now().UnixMilli()
+	var p HookPayload
+	if len(payloadBytes) > 0 {
+		_ = json.Unmarshal(payloadBytes, &p)
+	}
+	if len(p.WorkspacePaths) > 0 && p.WorkspacePaths[0] != "" {
+		workspaceRoot = p.WorkspacePaths[0]
+	}
+
+	sessionID := p.ConversationID
+	if sessionID == "" {
+		sessionID = "local-" + time.Now().Format("20060102")
+	}
+	stepIdx := -1
+	if p.StepIdx != nil {
+		stepIdx = *p.StepIdx
+	}
+	toolName := "tool_call"
+	var toolArgs map[string]interface{}
+	if p.ToolCall != nil {
+		if p.ToolCall.Name != "" {
+			toolName = p.ToolCall.Name
+		}
+		toolArgs = p.ToolCall.Args
+	}
+
+	// Calcular duracion desde archivo timer
+	var durationMs int64
+	tFile := timerFilePath(sessionID, stepIdx, toolName)
+	if data, err := os.ReadFile(tFile); err == nil {
+		var startMs int64
+		if _, err := fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &startMs); err == nil && startMs > 0 {
+			durationMs = normalizeDuration(nowMs - startMs)
+		}
+		_ = os.Remove(tFile)
+	}
+
+	activeSkill := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath)
+	sanitizedParams := sanitizeToolParams(toolArgs, workspaceRoot)
+
+	exitCode := 0
+	resultSummary := "ok"
+	if strings.TrimSpace(p.Error) != "" {
+		exitCode = 1
+		resultSummary = sanitizeStringValue(p.Error, workspaceRoot)
+	}
+
+	agentName := p.ModelName
+	if agentName == "" {
+		agentName = os.Getenv("SEB_AGENT")
+	}
+	if agentName == "" {
+		agentName = "antigravity"
+	}
+
+	// Extraer tokens del paso PLANNER_RESPONSE correspondiente y deduplicar por (session_id, step_idx)
+	var tokIn, cacheRead, tokOut int64
+	recordedStepIdx := stepIdx
+	if plannerIdx, tIn, tCache, tOut, ok := findPlannerStepMetrics(p.TranscriptPath, stepIdx); ok {
+		recordedStepIdx = plannerIdx
+		alreadyCounted := false
+		if db != nil && plannerIdx >= 0 {
+			var existing int
+			err := db.QueryRow(`SELECT COUNT(*) FROM agent_actions WHERE session_id = ? AND step_idx = ? AND (tokens_in > 0 OR cache_read_tokens > 0 OR tokens_out > 0)`,
+				sessionID, plannerIdx).Scan(&existing)
+			if err == nil && existing > 0 {
+				alreadyCounted = true
+			}
+		}
+		if !alreadyCounted {
+			tokIn = tIn
+			cacheRead = tCache
+			tokOut = tOut
+		}
+	}
+
+	if db != nil {
+		resolvedTask := resolveActiveTask("", os.Getenv("SEB_TASK_ID"), activeTaskPath, db)
+		cost := calculateCost(0.0, p.ModelName, tokIn, tokOut, configPath)
+		_, _ = db.Exec(`INSERT INTO agent_actions
+			(session_id, task_id, agent, skill, action, parameters, result_summary, level, duration_ms, tokens_in, cache_read_tokens, tokens_out, cost_usd, exit_code, step_idx)
+			VALUES (?, ?, ?, ?, ?, ?, ?, 'autonomous', ?, ?, ?, ?, ?, ?, ?)`,
+			sessionID, resolvedTask, agentName, activeSkill, toolName, sanitizedParams, resultSummary, durationMs, tokIn, cacheRead, tokOut, cost, exitCode, recordedStepIdx)
+	}
+
+	return "{}", nil
+}
+
+// processHookStop inspecciona transcriptPath al cierre de turno y registra pasos PLANNER_RESPONSE no contabilizados
+func processHookStop(db *sql.DB, payloadBytes []byte, envSkill, activeTaskPath, workspaceRoot, configPath string) (string, error) {
+	var p HookPayload
+	if len(payloadBytes) > 0 {
+		_ = json.Unmarshal(payloadBytes, &p)
+	}
+	if len(p.WorkspacePaths) > 0 && p.WorkspacePaths[0] != "" {
+		workspaceRoot = p.WorkspacePaths[0]
+	}
+
+	sessionID := p.ConversationID
+	if sessionID == "" {
+		sessionID = "local-" + time.Now().Format("20060102")
+	}
+	agentName := p.ModelName
+	if agentName == "" {
+		agentName = "antigravity"
+	}
+
+	if db != nil && p.TranscriptPath != "" {
+		if f, err := os.Open(p.TranscriptPath); err == nil {
+			defer f.Close()
+			activeSkill := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath)
+			resolvedTask := resolveActiveTask("", os.Getenv("SEB_TASK_ID"), activeTaskPath, db)
+
+			scanner := bufio.NewScanner(f)
+			buf := make([]byte, 0, 64*1024)
+			scanner.Buffer(buf, 2*1024*1024)
+
+			for scanner.Scan() {
+				line := scanner.Text()
+				if !strings.Contains(line, "PLANNER_RESPONSE") {
+					continue
+				}
+				var st TranscriptStep
+				if err := json.Unmarshal([]byte(line), &st); err == nil && st.Type == "PLANNER_RESPONSE" {
+					if st.InputTokens == 0 && st.CacheReadTokens == 0 && st.OutputTokens == 0 {
+						continue
+					}
+					var existing int
+					err := db.QueryRow(`SELECT COUNT(*) FROM agent_actions WHERE session_id = ? AND step_idx = ?`,
+						sessionID, st.StepIndex).Scan(&existing)
+					if err == nil && existing == 0 {
+						cost := calculateCost(0.0, p.ModelName, st.InputTokens, st.OutputTokens, configPath)
+						params := fmt.Sprintf(`{"step_index":%d}`, st.StepIndex)
+						_, _ = db.Exec(`INSERT INTO agent_actions
+							(session_id, task_id, agent, skill, action, parameters, result_summary, level, duration_ms, tokens_in, cache_read_tokens, tokens_out, cost_usd, exit_code, step_idx)
+							VALUES (?, ?, ?, ?, 'model_response', ?, 'ok', 'autonomous', 0, ?, ?, ?, ?, 0, ?)`,
+							sessionID, resolvedTask, agentName, activeSkill, params, st.InputTokens, st.CacheReadTokens, st.OutputTokens, cost, st.StepIndex)
+					}
+				}
+			}
+		}
+	}
+
+	return `{"decision":"allow"}`, nil
 }

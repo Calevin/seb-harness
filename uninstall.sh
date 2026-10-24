@@ -167,23 +167,35 @@ fi
 # 3.3 Limpieza quirurgica de .agents/
 if [ -d "$TARGET/.agents" ]; then
     if [ -d "$PAYLOAD/.agents" ]; then
-        for group in "$PAYLOAD/.agents"/*/; do
-            [ -d "$group" ] || continue
-            gname="$(basename "$group")"
-            for item in "$group"*; do
-                [ -e "$item" ] || continue
-                iname="$(basename "$item")"
-                target_item="$TARGET/.agents/$gname/$iname"
-                if [ -e "$target_item" ] || [ -L "$target_item" ]; then
+        for entry in "$PAYLOAD/.agents"/*; do
+            [ -e "$entry" ] || continue
+            if [ -d "$entry" ]; then
+                gname="$(basename "$entry")"
+                for item in "$entry"/*; do
+                    [ -e "$item" ] || continue
+                    iname="$(basename "$item")"
+                    target_item="$TARGET/.agents/$gname/$iname"
+                    if [ -e "$target_item" ] || [ -L "$target_item" ]; then
+                        if [ "$DRY_RUN" -eq 1 ]; then
+                            info "[dry-run] Se removeria $target_item"
+                        else
+                            rm -rf "$target_item"
+                        fi
+                    fi
+                done
+                if [ "$DRY_RUN" -eq 0 ]; then
+                    rmdir "$TARGET/.agents/$gname" 2>/dev/null || true
+                fi
+            elif [ -f "$entry" ]; then
+                fname="$(basename "$entry")"
+                target_file="$TARGET/.agents/$fname"
+                if [ -e "$target_file" ] || [ -L "$target_file" ]; then
                     if [ "$DRY_RUN" -eq 1 ]; then
-                        info "[dry-run] Se removeria $target_item"
+                        info "[dry-run] Se removeria $target_file"
                     else
-                        rm -rf "$target_item"
+                        rm -f "$target_file"
                     fi
                 fi
-            done
-            if [ "$DRY_RUN" -eq 0 ]; then
-                rmdir "$TARGET/.agents/$gname" 2>/dev/null || true
             fi
         done
     fi

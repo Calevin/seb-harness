@@ -75,14 +75,19 @@ else
 
     # Solo se reemplaza lo que provee el payload; lo demás de .agents/ se respeta.
     mkdir -p "$TARGET/.agents"
-    for group in "$PAYLOAD/.agents"/*/; do
-        gname="$(basename "$group")"
-        mkdir -p "$TARGET/.agents/$gname"
-        for item in "$group"*; do
-            [ -e "$item" ] || continue
-            rm -rf "$TARGET/.agents/$gname/$(basename "$item")"
-            cp -R "$item" "$TARGET/.agents/$gname/"
-        done
+    for entry in "$PAYLOAD/.agents"/*; do
+        [ -e "$entry" ] || continue
+        if [ -d "$entry" ]; then
+            gname="$(basename "$entry")"
+            mkdir -p "$TARGET/.agents/$gname"
+            for item in "$entry"/*; do
+                [ -e "$item" ] || continue
+                rm -rf "$TARGET/.agents/$gname/$(basename "$item")"
+                cp -R "$item" "$TARGET/.agents/$gname/"
+            done
+        elif [ -f "$entry" ]; then
+            cp -f "$entry" "$TARGET/.agents/$(basename "$entry")"
+        fi
     done
 
     # Archivos de contexto: plantillas solo si no existen.
