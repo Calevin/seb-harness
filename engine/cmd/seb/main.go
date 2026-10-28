@@ -414,7 +414,10 @@ func cmdPlanLock(db *sql.DB, args []string) {
 	}
 
 	checks, err := parseVerifierFile(task.VerifierPath)
-	if err != nil || len(checks) == 0 {
+	if err != nil {
+		fatal("BLOQUEO SDD: Error en '%s': %v", task.VerifierPath, err)
+	}
+	if len(checks) == 0 {
 		fatal("BLOQUEO SDD: '%s' no existe o no contiene comandos de verificación programática válidos.", task.VerifierPath)
 	}
 
@@ -491,8 +494,11 @@ func cmdVerify(db *sql.DB, args []string) {
 	}
 
 	checks, err := parseVerifierFile(task.VerifierPath)
-	if err != nil || len(checks) == 0 {
-		fatal("No se encontraron controles ejecutables en %s: %v", task.VerifierPath, err)
+	if err != nil {
+		fatal("Error en verificador '%s': %v", task.VerifierPath, err)
+	}
+	if len(checks) == 0 {
+		fatal("No se encontraron controles ejecutables en %s.", task.VerifierPath)
 	}
 
 	commitHash := currentGitCommit()
@@ -548,9 +554,11 @@ func cmdVerify(db *sql.DB, args []string) {
 	fmt.Println("\n**VEREDICTO:** `APROBADO` — Todos los controles deterministas pasaron con éxito.")
 }
 
-// Parsea filas de tabla Markdown en specs/<tarea>_verificador.md:
-// Formato esperado: | CHK-01 | RF-01 | Descripción | `comando a ejecutar` |
-var tableRowRegex = regexp.MustCompile(`^\|\s*(CHK-[A-Za-z0-9_-]+)\s*\|\s*([A-Za-z0-9_,-]+)\s*\|\s*([^|]+)\|\s*` + "`" + `([^` + "`" + `]+)` + "`" + `\s*\|`)
+// Identificadores y analizador de tablas Markdown en specs/<tarea>_verificador.md
+var (
+	checkCandidateRegex = regexp.MustCompile(`^\s*\|\s*CHK-`)
+	checkIDRegex        = regexp.MustCompile(`^CHK-[A-Za-z0-9_-]+$`)
+)
 
 func parseVerifierFile(path string) ([]CheckItem, error) {
 	f, err := os.Open(path)
@@ -560,20 +568,126 @@ func parseVerifierFile(path string) ([]CheckItem, error) {
 	defer f.Close()
 
 	var items []CheckItem
+	seenIDs := make(map[string]int)
+	inFencedBlock := false
+	lineNum := 0
+
 	scanner := bufio.NewScanner(f)
 	for scanner.Scan() {
-		line := strings.TrimSpace(scanner.Text())
-		matches := tableRowRegex.FindStringSubmatch(line)
-		if len(matches) == 5 {
-			items = append(items, CheckItem{
-				ID:      strings.TrimSpace(matches[1]),
-				ReqID:   strings.TrimSpace(matches[2]),
-				Desc:    strings.TrimSpace(matches[3]),
-				Command: strings.TrimSpace(matches[4]),
-			})
+		lineNum++
+		rawLine := scanner.Text()
+		trimmedLine := strings.TrimSpace(rawLine)
+
+		// Rastrear bloques de codigo cercados para otorgarles inmunidad contextual
+		if strings.HasPrefix(trimmedLine, "```") {
+			inFencedBlock = !inFencedBlock
+			continue
 		}
+		if inFencedBlock {
+			continue
+		}
+
+		// Filtrar lineas que no correspondan a una fila candidata a control
+		if !checkCandidateRegex.MatchString(trimmedLine) {
+			continue
+		}
+
+		// Validacion de fila candidata: rechazo de omisiones silenciosas (Anti-Silent-Drop)
+		if !strings.HasSuffix(trimmedLine, "|") {
+			return nil, fmt.Errorf("línea %d: fila de control malformada, falta delimitador final '|'", lineNum)
+		}
+
+		// Division en celdas respetando backticks para aislar comandos con pipes u operadores de shell
+		var cells []string
+		var current strings.Builder
+		inBacktick := false
+
+		for _, r := range trimmedLine {
+			switch r {
+			case '`':
+				inBacktick = !inBacktick
+				current.WriteRune(r)
+			case '|':
+				if !inBacktick {
+					cells = append(cells, current.String())
+					current.Reset()
+				} else {
+					current.WriteRune(r)
+				}
+			default:
+				current.WriteRune(r)
+			}
+		}
+		cells = append(cells, current.String())
+
+		if inBacktick {
+			return nil, fmt.Errorf("línea %d: fila de control con comillas invertidas no cerradas", lineNum)
+		}
+
+		// Se esperan exactamente 4 columnas entre delimitadores de tabla (total 6 celdas: inicio, 4 columnas, fin)
+		if len(cells) != 6 || strings.TrimSpace(cells[0]) != "" || strings.TrimSpace(cells[5]) != "" {
+			return nil, fmt.Errorf("línea %d: estructura de columnas inválida en fila de control (se esperaban 4 columnas: Check ID, Requisito, Descripción, Comando)", lineNum)
+		}
+
+		// 1. Check ID y control de unicidad
+		checkID := strings.TrimSpace(cells[1])
+		if !checkIDRegex.MatchString(checkID) {
+			return nil, fmt.Errorf("línea %d: formato de identificador de control inválido '%s'", lineNum, checkID)
+		}
+		if prevLine, exists := seenIDs[checkID]; exists {
+			return nil, fmt.Errorf("línea %d: identificador de control duplicado '%s' (declarado previamente en línea %d)", lineNum, checkID, prevLine)
+		}
+		seenIDs[checkID] = lineNum
+
+		// 2. Requisitos heterogeneos y normalizacion de listas (eliminacion de espacios adyacentes)
+		rawReq := strings.TrimSpace(cells[2])
+		if rawReq == "" {
+			return nil, fmt.Errorf("línea %d: el campo de requisitos no puede estar vacío", lineNum)
+		}
+		reqParts := strings.Split(rawReq, ",")
+		var cleanReqs []string
+		for _, p := range reqParts {
+			trimmedP := strings.TrimSpace(p)
+			if trimmedP == "" {
+				return nil, fmt.Errorf("línea %d: requisito vacío en lista de requisitos '%s'", lineNum, rawReq)
+			}
+			cleanReqs = append(cleanReqs, trimmedP)
+		}
+		normalizedReq := strings.Join(cleanReqs, ",")
+
+		// 3. Descripcion
+		desc := strings.TrimSpace(cells[3])
+		if desc == "" {
+			return nil, fmt.Errorf("línea %d: la descripción del control no puede estar vacía", lineNum)
+		}
+
+		// 4. Comando entre backticks
+		rawCmdCell := strings.TrimSpace(cells[4])
+		if !strings.HasPrefix(rawCmdCell, "`") || !strings.HasSuffix(rawCmdCell, "`") || len(rawCmdCell) < 2 {
+			return nil, fmt.Errorf("línea %d: delimitadores de comando inválidos (el comando debe estar encerrado entre comillas invertidas)", lineNum)
+		}
+		command := strings.TrimSpace(rawCmdCell[1 : len(rawCmdCell)-1])
+		if command == "" {
+			return nil, fmt.Errorf("línea %d: el comando de verificación no puede estar vacío", lineNum)
+		}
+
+		items = append(items, CheckItem{
+			ID:      checkID,
+			ReqID:   normalizedReq,
+			Desc:    desc,
+			Command: command,
+		})
 	}
-	return items, scanner.Err()
+
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+
+	if len(items) == 0 {
+		return nil, fmt.Errorf("el archivo no contiene controles ejecutables válidos")
+	}
+
+	return items, nil
 }
 
 func runCommandWithTimeout(cmdStr string, timeout time.Duration) (int, string) {
