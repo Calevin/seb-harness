@@ -7,8 +7,8 @@
 > - **Invariante del Agente:** Antes de proponer un diseño en `seb-planificador` o escribir código, verifica las secciones 2 y 3 para no reintentar enfoques fallidos.
 
 ## 1. Estado Actual del Proyecto
-- **Fase SDD activa:** Implementación y verificación completadas para Spec 004.
-- **Última Spec verificada:** 004 (`004_captura_telemetria_antigravity`).
+- **Fase SDD activa:** Implementación y verificación completadas para Spec 005.
+- **Última Spec verificada:** 005 (`005_gestion_grafo_dependencias`).
 - **Estado de la suite de verificación:** Motor Go validado (100% de controles en `[PASA]`, `go vet` y tests limpios).
 
 ## 2. Callejones sin Salida y Enfoques Descartados (NO REINTENTAR)
@@ -28,3 +28,4 @@
 - `[D-01] Adopción de pure Go SQLite (modernc.org/sqlite) -> CGO SQLite (mattn/go-sqlite3) -> Eliminar necesidad de toolchain C en NixOS/cross-compilation.`
 - `[D-02] Telemetría dual e híbrida -> Captura solo vía bash hooks -> Centralización de cascada de tarea activa en Go, cronometraje de comandos internos, soporte de archivos usage.jsonl y cálculo de costos con .seb/config.json.`
 - `[D-03] Homogeneización de Nomenclatura SDD -> Estandarización de prefijo secuencial <NNN>_ en spec, plan y verificador. Clave canónica <NNN>_<tarea> en seb.lock y resolución flexible (ID, nombre simple, canónico) en CLI con rechazo de ambigüedad.`
+- `[D-04] Gestión de Grafo de Dependencias (DAG) -> Persistencia en seb.lock con verified: true y commit_hash -> Guardarraíl determinista en plan-lock que valida prerrequisitos directos y previene referencias circulares mutuas de forma offline sin depender de SQLite local.`

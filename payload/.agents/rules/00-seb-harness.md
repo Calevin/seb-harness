@@ -1,6 +1,6 @@
 ---
 trigger: always_on
-description: "Invariantes de seb-harness: ciclo de vida SDD, principio de menor privilegio, protección anti-reward-hacking y auditoría SQLite."
+description: "Invariantes de seb-harness: ciclo de vida SDD, principio de menor privilegio, protección anti-reward-hacking, auditoría SQLite e integridad de dependencias DAG."
 ---
 
 # Regla Global: Gobernanza Determinista seb-harness
@@ -11,7 +11,7 @@ Operas bajo el control de **`seb-harness`**. Estas restricciones son acumulativa
 - Consulta siempre `@AGENTS.md`, `@docs/constitution.md` y `@MEMORY.md` antes de tomar decisiones técnicas o de diseño.
 - Verifica en `@MEMORY.md` la sección **"2. Callejones sin Salida"** para no proponer código ni dependencias previamente descartadas.
 
-## 2.Separación Estricta Generador / Evaluador (Anti-Reward-Hacking)
+## 2. Separación Estricta Generador / Evaluador (Anti-Reward-Hacking)
 - Los comandos definidos en `specs/*_verificador.md` actúan como controles computacionales deterministas independientes de tu propio juicio.
 - **PROHIBICIÓN ABSOLUTA:** Cuando actúes como agente implementador (escribiendo código de aplicación), tienes terminantemente prohibido modificar, borrar, comentar o relajar las condiciones en:
   - `@docs/constitution.md`
@@ -27,5 +27,9 @@ Operas bajo el control de **`seb-harness`**. Estas restricciones son acumulativa
 ## 4. Trazabilidad y Menor Privilegio
 - Respeta estrictamente el alcance del skill activo:
   - Si estás ejecutando `seb-especificador` o `seb-clarificador`, **nunca** modifiques archivos de código fuente ni de configuración del proyecto; limita tu escritura a `specs/<NNN>_<tarea>_spec.md` y `@MEMORY.md`.
-  - Si estás ejecutando `seb-planificador`, limita tu escritura a `specs/<NNN>_<tarea>_plan.md`, `specs/<NNN>_<tarea>_verificador.md` y `@MEMORY.md`. Si detectas un solo requisito no verificable programáticamente, aborta la creación del plan.
+  - Si estás ejecutando `seb-planificador`, limita tu escritura a `specs/<NNN>_<tarea>_plan.md`, `specs/<NNN>_<tarea>_verificador.md` y `@MEMORY.md`. Si detectas un solo requisito no verificable programáticamente o dependencias insatisfechas en el DAG, aborta la creación del plan.
 - Usa las herramientas del binario `.seb/bin/seb` para cualquier operación de secuencia de specs, verificación o reporte de auditoría para garantizar que el rastro quede grabado en `.seb/seb-audit.db`.
+
+## 5. Integridad del Grafo de Dependencias (DAG)
+- Toda tarea que declare dependencias en su spec (`Depends-On:` / `Dependencias:`) requiere que dichas dependencias directas estén formalmente verificadas (`verified: true` y `commit_hash` no vacío en `.seb/seb.lock`).
+- Queda terminantemente prohibido planificar o implementar código sobre una tarea si sus prerrequisitos directos no han superado exitosamente su propia suite de verificación determinista.

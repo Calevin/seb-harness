@@ -42,6 +42,8 @@ type SebLock struct {
 type TaskLock struct {
 	SpecHash     string `json:"spec_hash"`
 	VerifierHash string `json:"verifier_hash"`
+	Verified     bool   `json:"verified,omitempty"`
+	CommitHash   string `json:"commit_hash,omitempty"`
 }
 
 // ModelPricing define las tarifas monetarias por millon de tokens
@@ -416,14 +418,29 @@ func cmdPlanLock(db *sql.DB, args []string) {
 		fatal("BLOQUEO SDD: '%s' no existe o no contiene comandos de verificación programática válidos.", task.VerifierPath)
 	}
 
+	// Guardar hashes en seb.lock versionado por Git con clave canonica
+	lock := readLockFile()
+
+	// Guardarrail de Dependencias Directas (DAG)
+	deps, err := parseSpecDependencies(task.SpecPath)
+	if err != nil {
+		fatal("Error analizando dependencias de %s: %v", task.SpecPath, err)
+	}
+	if len(deps) > 0 {
+		if err := validateDirectDependencies(db, task, deps, lock); err != nil {
+			fatal("BLOQUEO SDD: %v", err)
+		}
+	}
+
 	specHash, _ := fileSHA256(task.SpecPath)
 	verifHash, _ := fileSHA256(task.VerifierPath)
 
-	// Guardar hashes en seb.lock versionado por Git con clave canonica
-	lock := readLockFile()
+	existingLock := lock.Tasks[task.CanonicalName]
 	lock.Tasks[task.CanonicalName] = TaskLock{
 		SpecHash:     specHash,
 		VerifierHash: verifHash,
+		Verified:     existingLock.Verified,
+		CommitHash:   existingLock.CommitHash,
 	}
 	writeLockFile(lock)
 
@@ -525,6 +542,7 @@ func cmdVerify(db *sql.DB, args []string) {
 
 	// Liberar el hook pre-commit porque la tarea pasó la verificación
 	clearActiveTask()
+	_ = updateTaskLockVerification(task.CanonicalName, commitHash)
 	logInternalAction(db, task.ID, "seb-verificador", "verify", task.CanonicalName, fmt.Sprintf("passed=%d failed=%d", passed, failed), durVerify, 0)
 	_, _ = db.Exec(`UPDATE tasks SET status = 'VERIFIED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, task.ID)
 	fmt.Println("\n**VEREDICTO:** `APROBADO` — Todos los controles deterministas pasaron con éxito.")
@@ -532,7 +550,7 @@ func cmdVerify(db *sql.DB, args []string) {
 
 // Parsea filas de tabla Markdown en specs/<tarea>_verificador.md:
 // Formato esperado: | CHK-01 | RF-01 | Descripción | `comando a ejecutar` |
-var tableRowRegex = regexp.MustCompile(`^\|\s*(CHK-[A-Za-z0-9_-]+)\s*\|\s*(RF-[A-Za-z0-9_,-]+)\s*\|\s*([^|]+)\|\s*` + "`" + `([^` + "`" + `]+)` + "`" + `\s*\|`)
+var tableRowRegex = regexp.MustCompile(`^\|\s*(CHK-[A-Za-z0-9_-]+)\s*\|\s*([A-Za-z0-9_,-]+)\s*\|\s*([^|]+)\|\s*` + "`" + `([^` + "`" + `]+)` + "`" + `\s*\|`)
 
 func parseVerifierFile(path string) ([]CheckItem, error) {
 	f, err := os.Open(path)
@@ -664,13 +682,39 @@ func cmdStatus(db *sql.DB, args []string) {
 	}
 	defer rows.Close()
 
-	fmt.Println("| ID | Clave Canónica | Estado SDD | Archivo Spec | Última Actualización |")
-	fmt.Println("| :--- | :--- | :--- | :--- | :--- |")
+	lock := readLockFile()
+
+	fmt.Println("| ID | Clave Canónica | Estado SDD | Dependencias | Archivo Spec | Última Actualización |")
+	fmt.Println("| :--- | :--- | :--- | :--- | :--- | :--- |")
 	for rows.Next() {
 		var id, name, status, specPath, updated string
 		_ = rows.Scan(&id, &name, &status, &specPath, &updated)
 		canonical := fmt.Sprintf("%s_%s", id, name)
-		fmt.Printf("| `%s` | `%s` | **%s** | `%s` | %s |\n", id, canonical, status, specPath, updated)
+
+		deps, _ := parseSpecDependencies(specPath)
+		depStr := "-"
+		if len(deps) > 0 {
+			var depFormatted []string
+			for _, d := range deps {
+				depTask, err := resolveTask(db, d)
+				if err != nil {
+					depFormatted = append(depFormatted, fmt.Sprintf("`%s` [HUERFANA]", d))
+					continue
+				}
+				tLock, ok := lock.Tasks[depTask.CanonicalName]
+				if !ok {
+					tLock = lock.Tasks[depTask.Name]
+				}
+				if tLock.Verified && tLock.CommitHash != "" {
+					depFormatted = append(depFormatted, fmt.Sprintf("`%s` [OK]", depTask.ID))
+				} else {
+					depFormatted = append(depFormatted, fmt.Sprintf("`%s` [BLOQUEADA]", depTask.ID))
+				}
+			}
+			depStr = strings.Join(depFormatted, ", ")
+		}
+
+		fmt.Printf("| `%s` | `%s` | **%s** | %s | `%s` | %s |\n", id, canonical, status, depStr, specPath, updated)
 	}
 }
 
@@ -1013,6 +1057,111 @@ func setActiveTask(taskName string) {
 
 func clearActiveTask() {
 	_ = os.Remove(".seb/ACTIVE_TASK")
+}
+
+func updateTaskLockVerification(canonicalName, commitHash string) error {
+	lock := readLockFile()
+	tLock, ok := lock.Tasks[canonicalName]
+	if !ok {
+		for k, v := range lock.Tasks {
+			if k == canonicalName || strings.HasSuffix(k, "_"+canonicalName) || strings.HasSuffix(canonicalName, "_"+k) {
+				tLock = v
+				canonicalName = k
+				ok = true
+				break
+			}
+		}
+	}
+	tLock.Verified = true
+	tLock.CommitHash = commitHash
+	lock.Tasks[canonicalName] = tLock
+	writeLockFile(lock)
+	return nil
+}
+
+var depRegex = regexp.MustCompile(`(?i)^\s*[-*]?\s*\**\s*(?:dependencias|depends[-_]on)\s*\**\s*:\s*(.+)$`)
+
+func parseSpecDependencies(specPath string) ([]string, error) {
+	f, err := os.Open(specPath)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var deps []string
+	scanner := bufio.NewScanner(f)
+	lineCount := 0
+	for scanner.Scan() && lineCount < 40 {
+		lineCount++
+		line := strings.TrimSpace(scanner.Text())
+		m := depRegex.FindStringSubmatch(line)
+		if len(m) == 2 {
+			raw := strings.TrimSpace(m[1])
+			raw = strings.Trim(raw, "`*")
+			parts := strings.Split(raw, ",")
+			for _, p := range parts {
+				token := strings.TrimSpace(p)
+				token = strings.Trim(token, "`*")
+				if token == "" {
+					continue
+				}
+				lower := strings.ToLower(token)
+				if lower == "ninguna" || lower == "none" || lower == "ninguno" || lower == "n/a" || lower == "-" {
+					continue
+				}
+				deps = append(deps, token)
+			}
+			break
+		}
+	}
+	return deps, scanner.Err()
+}
+
+func validateDirectDependencies(db *sql.DB, targetTask TaskInfo, deps []string, lock SebLock) error {
+	for _, dep := range deps {
+		depTask, err := resolveTask(db, dep)
+		if err != nil {
+			return fmt.Errorf("la tarea prerrequisito '%s' no existe en el repositorio o es ambigua: %w", dep, err)
+		}
+
+		if err := detectDirectCircularDependency(targetTask, depTask); err != nil {
+			return err
+		}
+
+		tLock, exists := lock.Tasks[depTask.CanonicalName]
+		if !exists {
+			tLock, exists = lock.Tasks[depTask.Name]
+		}
+		if !exists || !tLock.Verified || strings.TrimSpace(tLock.CommitHash) == "" {
+			return fmt.Errorf("la tarea prerrequisito '%s' no ha completado su verificación determinista (falta verified: true o commit_hash en .seb/seb.lock)", depTask.CanonicalName)
+		}
+	}
+	return nil
+}
+
+func detectDirectCircularDependency(targetTask, depTask TaskInfo) error {
+	if targetTask.CanonicalName == depTask.CanonicalName || targetTask.ID == depTask.ID || targetTask.Name == depTask.Name {
+		return fmt.Errorf("se detectó una dependencia circular directa mutua consigo misma en '%s'", targetTask.CanonicalName)
+	}
+
+	if depTask.SpecPath != "" {
+		depSpecDeps, err := parseSpecDependencies(depTask.SpecPath)
+		if err == nil {
+			for _, d := range depSpecDeps {
+				normD := strings.TrimSpace(d)
+				if matched, _ := regexp.MatchString(`^\d+$`, normD); matched {
+					var num int
+					fmt.Sscanf(normD, "%d", &num)
+					normD = fmt.Sprintf("%03d", num)
+				}
+				if normD == targetTask.ID || normD == targetTask.Name || normD == targetTask.CanonicalName ||
+					strings.HasPrefix(targetTask.CanonicalName, normD+"_") || strings.HasSuffix(targetTask.CanonicalName, "_"+normD) {
+					return fmt.Errorf("se detectó una referencia circular mutua entre '%s' y '%s'", targetTask.CanonicalName, depTask.CanonicalName)
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // HookPayload modela el contrato JSON camelCase enviado por Antigravity en stdin
