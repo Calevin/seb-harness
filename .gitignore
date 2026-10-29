@@ -13,4 +13,5 @@ bin/
 *.db-shm
 .seb/seb-audit.db*
 .seb/ACTIVE_TASK
+.seb/ACTIVE_ROLE
 .seb/seb.lock

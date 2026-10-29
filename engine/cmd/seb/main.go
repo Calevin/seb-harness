@@ -91,6 +91,7 @@ func main() {
 
 	switch cmd {
 	case "init":
+		_ = clearActiveRole()
 		fmt.Println("[seb-harness] Estructura y base de datos SQLite inicializadas correctamente.")
 	case "spec-next":
 		cmdSpecNext(db, args)
@@ -108,6 +109,10 @@ func main() {
 		cmdAudit(db, args)
 	case "hook":
 		cmdHook(db, args)
+	case "role":
+		if err := cmdRole(db, args); err != nil {
+			fatal("%v", err)
+		}
 	default:
 		printUsage()
 		os.Exit(1)
@@ -449,6 +454,7 @@ func cmdPlanLock(db *sql.DB, args []string) {
 
 	// Marcar la tarea como activa para el pre-commit hook con clave canonica
 	setActiveTask(task.CanonicalName)
+	_ = setActiveRole("implementador")
 
 	// Actualizar estado en SQLite (solo para observabilidad local)
 	_, _ = db.Exec(`UPDATE tasks SET status = 'PLANNED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, task.ID)
@@ -548,6 +554,7 @@ func cmdVerify(db *sql.DB, args []string) {
 
 	// Liberar el hook pre-commit porque la tarea pasó la verificación
 	clearActiveTask()
+	_ = clearActiveRole()
 	_ = updateTaskLockVerification(task.CanonicalName, commitHash)
 	logInternalAction(db, task.ID, "seb-verificador", "verify", task.CanonicalName, fmt.Sprintf("passed=%d failed=%d", passed, failed), durVerify, 0)
 	_, _ = db.Exec(`UPDATE tasks SET status = 'VERIFIED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, task.ID)
@@ -740,7 +747,8 @@ func checkPermission(role, action, target string) bool {
 	if action != "write" {
 		return true
 	}
-	switch role {
+	cleanRole := normalizeRole(role)
+	switch cleanRole {
 	case "seb-iniciador":
 		return target == "docs/constitution.md" || target == "MEMORY.md" || target == "AGENTS.md"
 	case "seb-especificador":
@@ -759,7 +767,13 @@ func checkPermission(role, action, target string) bool {
 		}
 		return true
 	default:
-		return false
+		// Habilidades de soporte o dominio desconocidas (RF-07) heredan la política de implementador:
+		// Tienen permiso para modificar código de aplicación pero NO contratos protegidos (RF-08).
+		if target == "docs/constitution.md" ||
+			(strings.HasPrefix(target, "specs/") && (strings.HasSuffix(target, "_spec.md") || strings.HasSuffix(target, "_verificador.md"))) {
+			return false
+		}
+		return true
 	}
 }
 
@@ -1138,6 +1152,7 @@ Comandos disponibles:
   seb plan-lock <tarea>                     Verifica testabilidad y sella hashes SHA-256 de spec y verificador
   seb verify <tarea>                        Ejecuta determinísticamente specs/<tarea>_verificador.md y audita
   seb guard <rol> <write|exec> <ruta>       Valida permisos de Menor Privilegio (<1ms)
+  seb role <set <rol>|get|clear>            Gestiona el rol de sesión activo
   seb memory-add "<categoría>" "<texto>"    Añade aprendizaje a MEMORY.md y registra en SQLite
   seb status                                Muestra el estado de todas las specs en el proyecto
   seb audit log [flags]                     Registra llamada a tool, latencia, tokens y costo USD
@@ -1171,6 +1186,104 @@ func setActiveTask(taskName string) {
 
 func clearActiveTask() {
 	_ = os.Remove(".seb/ACTIVE_TASK")
+}
+
+const defaultActiveRolePath = ".seb/ACTIVE_ROLE"
+
+var canonicalRoles = map[string]bool{
+	"seb-iniciador":     true,
+	"seb-especificador": true,
+	"seb-clarificador":  true,
+	"seb-planificador":  true,
+	"seb-verificador":   true,
+	"implementador":     true,
+}
+
+func normalizeRole(role string) string {
+	return strings.ToLower(strings.TrimSpace(role))
+}
+
+func isCanonicalRole(role string) bool {
+	return canonicalRoles[normalizeRole(role)]
+}
+
+func getActiveRolePath() string {
+	return defaultActiveRolePath
+}
+
+func setActiveRole(role string, rolePaths ...string) error {
+	norm := normalizeRole(role)
+	if !isCanonicalRole(norm) {
+		return fmt.Errorf("rol '%s' no reconocido. Roles canónicos válidos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, implementador", role)
+	}
+	path := defaultActiveRolePath
+	if len(rolePaths) > 0 && rolePaths[0] != "" {
+		path = rolePaths[0]
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return fmt.Errorf("no se pudo crear directorio para rol activo: %w", err)
+	}
+	return os.WriteFile(path, []byte(norm), 0644)
+}
+
+func getActiveRole(rolePaths ...string) string {
+	path := defaultActiveRolePath
+	if len(rolePaths) > 0 && rolePaths[0] != "" {
+		path = rolePaths[0]
+	}
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return "implementador"
+	}
+	norm := normalizeRole(string(data))
+	if !isCanonicalRole(norm) {
+		return "implementador"
+	}
+	return norm
+}
+
+func clearActiveRole(rolePaths ...string) error {
+	path := defaultActiveRolePath
+	if len(rolePaths) > 0 && rolePaths[0] != "" {
+		path = rolePaths[0]
+	}
+	err := os.Remove(path)
+	if err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// 7b. seb role <set|get|clear>
+func cmdRole(db *sql.DB, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("uso: seb role <set <nombre_rol> | get | clear>")
+	}
+	sub := strings.ToLower(strings.TrimSpace(args[0]))
+	switch sub {
+	case "set":
+		if len(args) < 2 || strings.TrimSpace(args[1]) == "" {
+			return fmt.Errorf("debe especificar un rol válido. Roles canónicos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, implementador")
+		}
+		roleArg := args[1]
+		if err := setActiveRole(roleArg); err != nil {
+			return err
+		}
+		fmt.Printf("[seb-harness] Rol activo de sesión establecido en '%s'.\n", normalizeRole(roleArg))
+		return nil
+	case "get":
+		role := getActiveRole()
+		fmt.Println(role)
+		return nil
+	case "clear":
+		if err := clearActiveRole(); err != nil {
+			return fmt.Errorf("error limpiando rol activo: %w", err)
+		}
+		fmt.Println("[seb-harness] Rol activo de sesión restablecido a 'implementador'.")
+		return nil
+	default:
+		return fmt.Errorf("subcomando de rol '%s' no reconocido. Uso: seb role <set <nombre_rol> | get | clear>", sub)
+	}
 }
 
 func updateTaskLockVerification(canonicalName, commitHash string) error {
@@ -1413,10 +1526,23 @@ func sanitizeToolParams(args map[string]interface{}, workspaceRoot string) strin
 
 var skillPathRegex = regexp.MustCompile(`\.agents/skills/([A-Za-z0-9_-]+)/SKILL\.md`)
 
-// inferActiveSkill determina la habilidad activa desde variable de entorno o transcriptPath
-func inferActiveSkill(envSkill, transcriptPath, activeTaskPath string) string {
+// inferActiveSkill determina la habilidad activa con jerarquía estricta de 4 niveles
+func inferActiveSkill(envSkill, transcriptPath, activeTaskPath string, activeRolePaths ...string) string {
+	// Nivel 1: Variable de entorno explícita SEB_SKILL
 	if strings.TrimSpace(envSkill) != "" {
 		return strings.TrimSpace(envSkill)
+	}
+
+	// Nivel 2: Rol persistido en .seb/ACTIVE_ROLE si existe y es canónico
+	activeRolePath := defaultActiveRolePath
+	if len(activeRolePaths) > 0 && activeRolePaths[0] != "" {
+		activeRolePath = activeRolePaths[0]
+	}
+	if data, err := os.ReadFile(activeRolePath); err == nil {
+		norm := normalizeRole(string(data))
+		if isCanonicalRole(norm) {
+			return norm
+		}
 	}
 
 	hasActiveLockedTask := false
@@ -1426,6 +1552,7 @@ func inferActiveSkill(envSkill, transcriptPath, activeTaskPath string) string {
 		}
 	}
 
+	// Nivel 3: Inferencia restrictiva en transcripción (únicamente roles canónicos seb-*)
 	lastSkill := ""
 	if transcriptPath != "" {
 		if f, err := os.Open(transcriptPath); err == nil {
@@ -1444,16 +1571,23 @@ func inferActiveSkill(envSkill, transcriptPath, activeTaskPath string) string {
 					for _, tc := range step.ToolCalls {
 						b, _ := json.Marshal(tc.Args)
 						if m := skillPathRegex.FindStringSubmatch(string(b)); len(m) == 2 {
-							lastSkill = m[1]
+							detected := normalizeRole(m[1])
+							if strings.HasPrefix(detected, "seb-") && isCanonicalRole(detected) {
+								lastSkill = detected
+							}
 						}
 					}
 				} else if m := skillPathRegex.FindStringSubmatch(line); len(m) == 2 {
-					lastSkill = m[1]
+					detected := normalizeRole(m[1])
+					if strings.HasPrefix(detected, "seb-") && isCanonicalRole(detected) {
+						lastSkill = detected
+					}
 				}
 			}
 		}
 	}
 
+	// Nivel 4: Fallback a implementador
 	if lastSkill == "" {
 		return "implementador"
 	}
@@ -1530,7 +1664,11 @@ func processHookPreTool(db *sql.DB, payloadBytes []byte, envSkill, activeTaskPat
 	tFile := timerFilePath(sessionID, stepIdx, toolName)
 	_ = os.WriteFile(tFile, []byte(fmt.Sprintf("%d", time.Now().UnixMilli())), 0644)
 
-	activeRole := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath)
+	rolePath := defaultActiveRolePath
+	if workspaceRoot != "" {
+		rolePath = filepath.Join(workspaceRoot, defaultActiveRolePath)
+	}
+	activeRole := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath, rolePath)
 	targetPath, cmdStr := extractTargetAndCommand(p.ToolCall, workspaceRoot)
 
 	// 1. Bloqueo de archivos sensibles
@@ -1663,7 +1801,11 @@ func processHookPostTool(db *sql.DB, payloadBytes []byte, envSkill, activeTaskPa
 		_ = os.Remove(tFile)
 	}
 
-	activeSkill := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath)
+	rolePath := defaultActiveRolePath
+	if workspaceRoot != "" {
+		rolePath = filepath.Join(workspaceRoot, defaultActiveRolePath)
+	}
+	activeSkill := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath, rolePath)
 	sanitizedParams := sanitizeToolParams(toolArgs, workspaceRoot)
 
 	exitCode := 0
@@ -1736,7 +1878,11 @@ func processHookStop(db *sql.DB, payloadBytes []byte, envSkill, activeTaskPath, 
 	if db != nil && p.TranscriptPath != "" {
 		if f, err := os.Open(p.TranscriptPath); err == nil {
 			defer f.Close()
-			activeSkill := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath)
+			rolePath := defaultActiveRolePath
+	if workspaceRoot != "" {
+		rolePath = filepath.Join(workspaceRoot, defaultActiveRolePath)
+	}
+	activeSkill := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath, rolePath)
 			resolvedTask := resolveActiveTask("", os.Getenv("SEB_TASK_ID"), activeTaskPath, db)
 
 			scanner := bufio.NewScanner(f)

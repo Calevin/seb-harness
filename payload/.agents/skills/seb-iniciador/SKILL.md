@@ -23,6 +23,8 @@ Your sole objective is to reverse-engineer an existing repository (or bootstrap 
 
 1. If `.seb/seb-audit.db` does not exist and `.seb/bin/seb` is compiled, run:
    `SEB_SKILL="seb-iniciador" .seb/bin/seb init`
+   Establish the session role explicitly:
+   `.seb/bin/seb role set seb-iniciador`
 2. Do NOT read the entire codebase. Inspect ONLY high-signal files to infer the stack, architecture, and verification commands:
    - **Nix / OS Env:** `flake.nix`, `shell.nix`, `.envrc`, `Makefile`, `justfile`, `Dockerfile`, `docker-compose.yml`.
    - **Go:** `go.mod`, `go.sum`, `.golangci.yml`, main entrypoints (`cmd/`), and 1-2 `*_test.go` files.
