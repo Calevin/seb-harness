@@ -14,7 +14,7 @@ Your sole objective is to reverse-engineer an existing repository (or bootstrap 
 
 - **Active Role:** `seb-iniciador` (export `SEB_SKILL="seb-iniciador"` when invoking shell commands).
 - **Allowed Reads:** Project manifests, configuration files, directory trees, READMEs, CI workflows, and sample domain/test files.
-- **Allowed Writes:** ONLY `docs/constitution.md`, `MEMORY.md`, and `AGENTS.md`.
+- **Allowed Writes:** ONLY `docs/constitution.md`, `docs/constitution.pre-seb.md`, `MEMORY.md`, `AGENTS.md`, and assistant stubs (`GEMINI.md`, `CLAUDE.md`).
 - **Forbidden:** You MUST NOT modify any source code, tests, dependencies, or files inside `specs/`.
 
 ## Step-by-Step Execution Protocol
@@ -30,14 +30,16 @@ Your sole objective is to reverse-engineer an existing repository (or bootstrap 
    - **PHP / Symfony:** `composer.json`, `symfony.lock`, `phpunit.xml.dist`, `phpstan.neon`, `config/`, `src/`.
    - **JS / TS / Python / Others:** `package.json`, `pyproject.toml`, etc.
    - **CI & Linters:** `.github/workflows/*`, `.gitlab-ci.yml`, `.editorconfig`.
-   - **Existing Context:** `README.md`, `AGENTS.md`, `MEMORY.md`, `TODO.md`.
+   - **Existing Context & Pre-seb Backups:** `README.md`, `AGENTS.md`, `AGENTS.pre-seb.md`, `GEMINI.md`, `GEMINI.pre-seb.md`, `CLAUDE.md`, `CLAUDE.pre-seb.md`, `docs/constitution.md`, `docs/constitution.pre-seb.md`, `MEMORY.md`, `TODO.md`.
 
-### Phase 2: Gap Detection & Brief Interview (Max 4 Questions)
+### Phase 2: Brownfield Constitution Protocol & Gap Detection
 
-Compare your findings against the required sections **A through F**.
-
-- If critical decisions cannot be inferred from the code (e.g., core business invariants, strict architectural prohibitions, or which test/linter commands are mandatory), ask the user **up to 4 direct, numbered questions** before writing the file.
-- If the codebase and user prompt already provide sufficient context, present a concise draft summary and write `docs/constitution.md`.
+1. **Preexisting Constitution Check:**
+   - If `docs/constitution.md` already exists and contains the canonical `seb-harness` signature (case-insensitive): **PRESERVE IT**. Do not overwrite or destructively modify it.
+   - If `docs/constitution.md` exists but lacks the `seb-harness` signature: backup the original as `docs/constitution.pre-seb.md` and assimilate its domain/stack rules into the new constitution.
+2. Compare your findings (including rules extracted from `*.pre-seb.md` and preexisting instructions) against required sections **A through F**.
+3. If critical decisions cannot be inferred from the code or legacy context, ask the user **up to 4 direct, numbered questions** before writing the file.
+4. If the codebase and legacy context provide sufficient directives, present a concise draft summary and write `docs/constitution.md`. Consolidate legacy architecture, domain and style rules into sections B, C, D and E.
 
 ### Phase 3: Generate `docs/constitution.md` (Mandatory Structure A–F)
 
@@ -95,4 +97,19 @@ Use this exact structure:
 3. **Anti-Reward-Hacking:** Está terminantemente prohibido modificar `docs/constitution.md`, `specs/*_spec.md` o `specs/*_verificador.md` durante la implementación, así como deshabilitar o relajar tests para forzar que pasen.
 4. **Memoria Persistente (`MEMORY.md`):** Antes de planificar o codificar, el agente debe consultar `MEMORY.md` para evitar callejones sin salida ya documentados, y registrar allí cualquier nueva limitación técnica descubierta.
 5. **Commits Protegidos:** Todo commit de código debe pasar la puerta determinista `.seb/bin/seb verify <tarea>`.
+```
+
+### Phase 4: Anti-Split-Brain Assistant Stubs Generation
+
+If external assistant context files were detected or backed up (`GEMINI.pre-seb.md`, `CLAUDE.pre-seb.md`, etc.), generate or overwrite the canonical assistant stubs (`GEMINI.md`, `CLAUDE.md`) pointing to the single source of truth:
+
+```markdown
+# Contexto del Proyecto
+
+> Este proyecto implementa gobernanza y desarrollo determinista bajo **seb-harness**.
+> Todas las directrices de arquitectura, stack y estilo están consolidadas en la constitución del proyecto.
+
+- **Ley Suprema de Arquitectura y Dominio:** [docs/constitution.md](docs/constitution.md)
+- **Protocolo Operativo de Agentes:** [AGENTS.md](AGENTS.md)
+- **Bitácora y Memoria Técnica:** [MEMORY.md](MEMORY.md)
 ```

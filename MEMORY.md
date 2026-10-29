@@ -7,7 +7,7 @@
 > - **Invariante del Agente:** Antes de proponer un diseño en `seb-planificador` o escribir código, verifica las secciones 2 y 3 para no reintentar enfoques fallidos.
 
 ## 1. Estado Actual del Proyecto
-- **Fase SDD activa:** Implementación y verificación completadas para Spec 006.
+- **Fase SDD activa:** Implementación completada para Spec 007 (`007_migracion_contexto_brownfield`); pendiente de verificación formal con `seb-verificador`.
 - **Última Spec verificada:** 006 (`006_parser_tabla_verificacion`).
 - **Estado de la suite de verificación:** Motor Go validado (100% de controles en `[PASA]`, `go vet` y tests limpios).
 
@@ -30,3 +30,4 @@
 - `[D-03] Homogeneización de Nomenclatura SDD -> Estandarización de prefijo secuencial <NNN>_ en spec, plan y verificador. Clave canónica <NNN>_<tarea> en seb.lock y resolución flexible (ID, nombre simple, canónico) en CLI con rechazo de ambigüedad.`
 - `[D-04] Gestión de Grafo de Dependencias (DAG) -> Persistencia en seb.lock con verified: true y commit_hash -> Guardarraíl determinista en plan-lock que valida prerrequisitos directos y previene referencias circulares mutuas de forma offline sin depender de SQLite local.`
 - `[D-05] Parser Híbrido de Matrices de Verificación y Anti-Silent-Drop -> Sustitución de regex rígida en parseVerifierFile por analizador contextual (inmunidad en bloques cercados) y extracción delimitada por backticks externos -> Soporte de requisitos heterogéneos (RF, RNF, GLOBAL, CL) con normalización de espacios, aislamiento de comandos de shell con pipes/operadores y rechazo bloqueante inmediato (código 1) ante cualquier fila CHK- malformada o ID duplicado, erradicando omisiones silenciosas y falsos aprobados.`
+- `[D-06] Asimilación de Contexto Brownfield y Reversibilidad -> Respaldo automático determinista con infijo .pre-seb.<ext> en install.sh ante archivos ajenos sin firma seb-harness (AGENTS.md, GEMINI.md, CLAUDE.md) -> Asimilación en docs/constitution.md y generación de stubs anti-split-brain en seb-iniciador -> Restauración quirúrgica de archivos *.pre-seb.* en uninstall.sh garantizando reversibilidad total.`

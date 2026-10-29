@@ -216,6 +216,27 @@ if [ "$PURGE" -eq 1 ]; then
     fi
 fi
 
+# 3.5 Restauracion automatica de respaldos *.pre-seb.* (Spec 007)
+while IFS= read -r -d '' bak_file; do
+    [ -f "$bak_file" ] || continue
+    dir="$(dirname "$bak_file")"
+    base="$(basename "$bak_file")"
+    if [[ "$base" == *".pre-seb."* ]]; then
+        orig_base="${base/.pre-seb./.}"
+    else
+        orig_base="${base%.pre-seb}"
+    fi
+    orig_file="$dir/$orig_base"
+
+    if [ "$DRY_RUN" -eq 1 ]; then
+        info "[dry-run] Se restauraria archivo original: $bak_file -> $orig_file"
+    else
+        mkdir -p "$dir"
+        mv -f "$bak_file" "$orig_file"
+        info "Restaurado archivo original desde respaldo: $orig_base"
+    fi
+done < <(find "$TARGET" -maxdepth 2 -type f \( -name "*.pre-seb.*" -o -name "*.pre-seb" \) -print0 2>/dev/null || true)
+
 # --- Resumen ----------------------------------------------------------------
 if [ "$DRY_RUN" -eq 1 ]; then
     info "Simulacion completada. No se realizaron cambios en $TARGET"

@@ -25,6 +25,35 @@ info() { printf '\033[1;34m->\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!!\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
 
+has_seb_signature() {
+    local file="$1"
+    [ -f "$file" ] && grep -qi "seb-harness" "$file"
+}
+
+backup_pre_seb() {
+    local file="$1"
+    [ -f "$file" ] || return 0
+    if ! has_seb_signature "$file"; then
+        local dir base name ext bak
+        dir="$(dirname "$file")"
+        base="$(basename "$file")"
+        if [[ "$base" == *.* ]]; then
+            name="${base%.*}"
+            ext="${base##*.}"
+            bak="$dir/$name.pre-seb.$ext"
+        else
+            bak="$dir/$base.pre-seb"
+        fi
+
+        if [ -e "$bak" ]; then
+            warn "Ya existe un respaldo $bak; se conserva el respaldo previo."
+        else
+            mv "$file" "$bak"
+            info "Detectado archivo ajeno a seb-harness. Respaldado: $base -> $(basename "$bak")"
+        fi
+    fi
+}
+
 usage() { sed -n '2,16p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 # --- Argumentos -------------------------------------------------------------
@@ -90,13 +119,31 @@ else
         fi
     done
 
-    # Archivos de contexto: plantillas solo si no existen.
-    for f in AGENTS.md MEMORY.md; do
-        if [ -e "$TARGET/$f" ]; then
-            info "$f ya existe: se conserva."
+    # Archivos de contexto: gestion determinista de directivas previas (Spec 007)
+    if [ -e "$TARGET/AGENTS.md" ]; then
+        if has_seb_signature "$TARGET/AGENTS.md"; then
+            info "AGENTS.md ya existe con firma seb-harness: se conserva."
         else
-            cp "$PAYLOAD/$f" "$TARGET/$f"
-            info "Creado $f desde la plantilla."
+            backup_pre_seb "$TARGET/AGENTS.md"
+            cp "$PAYLOAD/AGENTS.md" "$TARGET/AGENTS.md"
+            info "Instalado AGENTS.md oficial de seb-harness."
+        fi
+    else
+        cp "$PAYLOAD/AGENTS.md" "$TARGET/AGENTS.md"
+        info "Creado AGENTS.md desde la plantilla."
+    fi
+
+    if [ -e "$TARGET/MEMORY.md" ]; then
+        info "MEMORY.md ya existe: se conserva."
+    else
+        cp "$PAYLOAD/MEMORY.md" "$TARGET/MEMORY.md"
+        info "Creado MEMORY.md desde la plantilla."
+    fi
+
+    # Respaldar archivos de contexto de otros asistentes si no pertenecen al arnes
+    for assistant_file in "GEMINI.md" "CLAUDE.md"; do
+        if [ -f "$TARGET/$assistant_file" ]; then
+            backup_pre_seb "$TARGET/$assistant_file"
         fi
     done
 fi
