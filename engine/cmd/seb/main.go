@@ -44,6 +44,7 @@ type TaskLock struct {
 	VerifierHash string `json:"verifier_hash"`
 	Verified     bool   `json:"verified,omitempty"`
 	CommitHash   string `json:"commit_hash,omitempty"`
+	Aborted      bool   `json:"aborted,omitempty"`
 }
 
 // ModelPricing define las tarifas monetarias por millon de tokens
@@ -111,6 +112,14 @@ func main() {
 		cmdHook(db, args)
 	case "role":
 		if err := cmdRole(db, args); err != nil {
+			fatal("%v", err)
+		}
+	case "abort":
+		if err := cmdAbort(db, args); err != nil {
+			fatal("%v", err)
+		}
+	case "task":
+		if err := handleTaskSubcommand(db, args); err != nil {
 			fatal("%v", err)
 		}
 	default:
@@ -833,7 +842,9 @@ func cmdStatus(db *sql.DB, args []string) {
 				if !ok {
 					tLock = lock.Tasks[depTask.Name]
 				}
-				if tLock.Verified && tLock.CommitHash != "" {
+				if tLock.Aborted {
+					depFormatted = append(depFormatted, fmt.Sprintf("`%s` [ABORTADA]", depTask.ID))
+				} else if tLock.Verified && tLock.CommitHash != "" {
 					depFormatted = append(depFormatted, fmt.Sprintf("`%s` [OK]", depTask.ID))
 				} else {
 					depFormatted = append(depFormatted, fmt.Sprintf("`%s` [BLOQUEADA]", depTask.ID))
@@ -842,7 +853,12 @@ func cmdStatus(db *sql.DB, args []string) {
 			depStr = strings.Join(depFormatted, ", ")
 		}
 
-		fmt.Printf("| `%s` | `%s` | **%s** | %s | `%s` | %s |\n", id, canonical, status, depStr, specPath, updated)
+		displayStatus := fmt.Sprintf("**%s**", status)
+		if status == "ABORTED" {
+			displayStatus = "**[ABORTADA]**"
+		}
+
+		fmt.Printf("| `%s` | `%s` | %s | %s | `%s` | %s |\n", id, canonical, displayStatus, depStr, specPath, updated)
 	}
 }
 
@@ -1153,6 +1169,8 @@ Comandos disponibles:
   seb verify <tarea>                        Ejecuta determinísticamente specs/<tarea>_verificador.md y audita
   seb guard <rol> <write|exec> <ruta>       Valida permisos de Menor Privilegio (<1ms)
   seb role <set <rol>|get|clear>            Gestiona el rol de sesión activo
+  seb abort <tarea> [--purge] [--force]    Aborta formalmente o purga una tarea y sus artefactos
+  seb task abort <tarea> [flags]            Alias estructurado de abort
   seb memory-add "<categoría>" "<texto>"    Añade aprendizaje a MEMORY.md y registra en SQLite
   seb status                                Muestra el estado de todas las specs en el proyecto
   seb audit log [flags]                     Registra llamada a tool, latencia, tokens y costo USD
@@ -1186,6 +1204,252 @@ func setActiveTask(taskName string) {
 
 func clearActiveTask() {
 	_ = os.Remove(".seb/ACTIVE_TASK")
+}
+
+func readActiveTask(path string) string {
+	if data, err := os.ReadFile(path); err == nil {
+		return strings.TrimSpace(string(data))
+	}
+	return ""
+}
+
+// handleTaskSubcommand despacha subcomandos estructurados bajo 'seb task'
+func handleTaskSubcommand(db *sql.DB, args []string) error {
+	if len(args) == 0 {
+		return errors.New("subcomando de tarea no especificado. Uso: seb task <abort> [flags] <tarea>")
+	}
+	switch args[0] {
+	case "abort":
+		return cmdAbort(db, args[1:])
+	default:
+		return fmt.Errorf("subcomando de tarea '%s' desconocido. Uso: seb task <abort>", args[0])
+	}
+}
+
+// parseAbortFlags procesa argumentos y banderas para el comando abort
+func parseAbortFlags(args []string) (taskQuery string, purge bool, force bool, err error) {
+	for _, arg := range args {
+		trimmed := strings.TrimSpace(arg)
+		if trimmed == "" {
+			continue
+		}
+		switch trimmed {
+		case "--purge":
+			purge = true
+		case "--force", "-f":
+			force = true
+		default:
+			if strings.HasPrefix(trimmed, "-") {
+				return "", false, false, fmt.Errorf("bandera desconocida: '%s'", trimmed)
+			}
+			if taskQuery != "" {
+				return "", false, false, fmt.Errorf("se proporciono mas de un identificador de tarea: '%s' y '%s'", taskQuery, trimmed)
+			}
+			taskQuery = trimmed
+		}
+	}
+	if taskQuery == "" {
+		return "", false, false, errors.New("identificador de tarea no especificado. Uso: seb abort <tarea> [--purge] [--force|-f]")
+	}
+	return taskQuery, purge, force, nil
+}
+
+// checkTaskDependents escanea las specs existentes para detectar tareas dependientes
+func checkTaskDependents(targetTask TaskInfo) ([]string, error) {
+	files, err := filepath.Glob("specs/*_*_spec.md")
+	if err != nil {
+		return nil, err
+	}
+	var dependents []string
+	for _, f := range files {
+		if filepath.Clean(f) == filepath.Clean(targetTask.SpecPath) {
+			continue
+		}
+		deps, err := parseSpecDependencies(f)
+		if err != nil {
+			continue
+		}
+		for _, dep := range deps {
+			cleanDep := strings.TrimSpace(dep)
+			if matched, _ := regexp.MatchString(`^\d+$`, cleanDep); matched {
+				var num int
+				fmt.Sscanf(cleanDep, "%d", &num)
+				cleanDep = fmt.Sprintf("%03d", num)
+			}
+			if cleanDep == targetTask.ID || cleanDep == targetTask.Name || cleanDep == targetTask.CanonicalName {
+				base := filepath.Base(f)
+				dependents = append(dependents, strings.TrimSuffix(base, "_spec.md"))
+				break
+			}
+		}
+	}
+	return dependents, nil
+}
+
+// updateSpecHeaderStatus actualiza la linea de Estado en el archivo Markdown de la spec
+func updateSpecHeaderStatus(specPath, newStatus string) error {
+	data, err := os.ReadFile(specPath)
+	if err != nil {
+		return err
+	}
+	lines := strings.Split(string(data), "\n")
+	reState := regexp.MustCompile(`^(\s*-\s*\*\*Estado:\*\*)\s*.*$`)
+	replaced := false
+	for i, line := range lines {
+		if reState.MatchString(line) {
+			lines[i] = fmt.Sprintf("- **Estado:** `%s`", newStatus)
+			replaced = true
+			break
+		}
+	}
+	if !replaced {
+		var newLines []string
+		for i, line := range lines {
+			newLines = append(newLines, line)
+			if i == 0 && strings.HasPrefix(line, "# ") {
+				newLines = append(newLines, fmt.Sprintf("- **Estado:** `%s`", newStatus))
+				replaced = true
+			}
+		}
+		if replaced {
+			lines = newLines
+		}
+	}
+	return os.WriteFile(specPath, []byte(strings.Join(lines, "\n")), 0644)
+}
+
+// cleanActiveTaskIfMatches elimina el puntero ACTIVE_TASK si corresponde a la tarea
+func cleanActiveTaskIfMatches(task TaskInfo) {
+	if activeData, err := os.ReadFile(".seb/ACTIVE_TASK"); err == nil {
+		active := strings.TrimSpace(string(activeData))
+		if active == task.ID || active == task.Name || active == task.CanonicalName {
+			_ = os.Remove(".seb/ACTIVE_TASK")
+		}
+	}
+}
+
+// cmdAbort orquesta el aborto formal o la purga de una tarea
+func cmdAbort(db *sql.DB, args []string) error {
+	taskQuery, purge, force, err := parseAbortFlags(args)
+	if err != nil {
+		return err
+	}
+
+	task, err := resolveTask(db, taskQuery)
+	if err != nil {
+		return fmt.Errorf("tarea no encontrada: %w", err)
+	}
+
+	lock := readLockFile()
+
+	// 1. Guardarrail de tarea verificada (RF-13)
+	isVerified := (task.Status == "VERIFIED")
+	tLock, inLock := lock.Tasks[task.CanonicalName]
+	if !inLock {
+		tLock = lock.Tasks[task.Name]
+	}
+	if tLock.Verified && strings.TrimSpace(tLock.CommitHash) != "" {
+		isVerified = true
+	}
+	if isVerified && !force {
+		return fmt.Errorf("BLOQUEO DE SEGURIDAD: La tarea '%s' ya esta formalmente verificada. Usa --force para forzar la operacion.", task.CanonicalName)
+	}
+
+	// 2. Guardarrail de tareas dependientes en el DAG (RF-12)
+	dependents, err := checkTaskDependents(task)
+	if err == nil && len(dependents) > 0 && !force {
+		return fmt.Errorf("BLOQUEO DE SEGURIDAD: Las siguientes tareas dependen de '%s': %s. Usa --force para forzar la operacion.",
+			task.CanonicalName, strings.Join(dependents, ", "))
+	}
+
+	// 3. Ejecutar segun modalidad
+	if purge {
+		return executeTaskPurge(db, task, lock)
+	}
+	return executeTaskAbortFormal(db, task, lock)
+}
+
+// executeTaskPurge ejecuta la eliminacion atómica y completa de la tarea
+func executeTaskPurge(db *sql.DB, task TaskInfo, lock SebLock) error {
+	// A. SQLite: eliminacion transaccional
+	if db != nil {
+		tx, err := db.Begin()
+		if err != nil {
+			return fmt.Errorf("error iniciando transaccion: %w", err)
+		}
+		defer tx.Rollback()
+
+		if _, err := tx.Exec(`DELETE FROM verifications WHERE task_id = ? OR task_id = ? OR task_id = ?`,
+			task.ID, task.Name, task.CanonicalName); err != nil {
+			return fmt.Errorf("error purgando verifications: %w", err)
+		}
+		if _, err := tx.Exec(`DELETE FROM agent_actions WHERE task_id = ? OR task_id = ? OR task_id = ?`,
+			task.ID, task.Name, task.CanonicalName); err != nil {
+			return fmt.Errorf("error purgando agent_actions: %w", err)
+		}
+		if _, err := tx.Exec(`DELETE FROM tasks WHERE id = ? OR name = ?`,
+			task.ID, task.Name); err != nil {
+			return fmt.Errorf("error purgando tasks: %w", err)
+		}
+		if err := tx.Commit(); err != nil {
+			return fmt.Errorf("error confirmando transaccion SQLite: %w", err)
+		}
+	}
+
+	// B. Archivos fisicos en specs/
+	for _, p := range []string{task.SpecPath, task.PlanPath, task.VerifierPath} {
+		if p != "" {
+			if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
+				return fmt.Errorf("error eliminando '%s': %w", p, err)
+			}
+		}
+	}
+
+	// C. seb.lock
+	delete(lock.Tasks, task.CanonicalName)
+	delete(lock.Tasks, task.Name)
+	writeLockFile(lock)
+
+	// D. ACTIVE_TASK
+	cleanActiveTaskIfMatches(task)
+
+	fmt.Printf("[seb-harness] Tarea '%s' purgada completamente del sistema.\n", task.CanonicalName)
+	return nil
+}
+
+// executeTaskAbortFormal cancela formalmente la tarea preservando telemetria
+func executeTaskAbortFormal(db *sql.DB, task TaskInfo, lock SebLock) error {
+	// A. SQLite: actualizar estado a ABORTED
+	if db != nil {
+		_, err := db.Exec(`
+			INSERT INTO tasks (id, name, spec_path, status, updated_at)
+			VALUES (?, ?, ?, 'ABORTED', CURRENT_TIMESTAMP)
+			ON CONFLICT(id) DO UPDATE SET status = 'ABORTED', updated_at = CURRENT_TIMESTAMP`,
+			task.ID, task.Name, task.SpecPath)
+		if err != nil {
+			return fmt.Errorf("error actualizando estado a ABORTED en SQLite: %w", err)
+		}
+	}
+
+	// B. Archivo spec en disco: actualizar cabecera
+	if task.SpecPath != "" {
+		if _, err := os.Stat(task.SpecPath); err == nil {
+			_ = updateSpecHeaderStatus(task.SpecPath, "ABORTADA")
+		}
+	}
+
+	// C. seb.lock: marcar como cancelada
+	tLock := lock.Tasks[task.CanonicalName]
+	tLock.Verified = false
+	tLock.Aborted = true
+	lock.Tasks[task.CanonicalName] = tLock
+	writeLockFile(lock)
+
+	// D. ACTIVE_TASK
+	cleanActiveTaskIfMatches(task)
+
+	fmt.Printf("[seb-harness] Tarea '%s' abortada formalmente (telemetria preservada).\n", task.CanonicalName)
+	return nil
 }
 
 const defaultActiveRolePath = ".seb/ACTIVE_ROLE"
@@ -1358,6 +1622,9 @@ func validateDirectDependencies(db *sql.DB, targetTask TaskInfo, deps []string, 
 		tLock, exists := lock.Tasks[depTask.CanonicalName]
 		if !exists {
 			tLock, exists = lock.Tasks[depTask.Name]
+		}
+		if exists && tLock.Aborted {
+			return fmt.Errorf("la tarea prerrequisito '%s' fue abortada y no satisface el requisito", depTask.CanonicalName)
 		}
 		if !exists || !tLock.Verified || strings.TrimSpace(tLock.CommitHash) == "" {
 			return fmt.Errorf("la tarea prerrequisito '%s' no ha completado su verificación determinista (falta verified: true o commit_hash en .seb/seb.lock)", depTask.CanonicalName)
