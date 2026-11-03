@@ -81,6 +81,15 @@ func TestInstallBackupAgentsPreSeb(t *testing.T) {
 	if string(dataAfterReinstall) != customAgentsContent {
 		t.Fatalf("El respaldo fue sobreescrito o alterado en la segunda ejecucion")
 	}
+
+	// Verificar que .gitignore contiene las entradas del arnes incluyendo .seb/ACTIVE_ROLE
+	targetGitignore, err := os.ReadFile(filepath.Join(targetDir, ".gitignore"))
+	if err != nil {
+		t.Fatalf("No se encontro .gitignore tras install.sh: %v", err)
+	}
+	if !strings.Contains(string(targetGitignore), ".seb/ACTIVE_ROLE") {
+		t.Fatalf(".gitignore no contiene .seb/ACTIVE_ROLE:\n%s", string(targetGitignore))
+	}
 }
 
 // CHK-02: RF-02, RF-07, RF-09

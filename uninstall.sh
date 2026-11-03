@@ -144,12 +144,12 @@ fi
 # 3.1 Limpieza quirurgica de .gitignore
 if [ -f "$TARGET/.gitignore" ]; then
     if [ "$DRY_RUN" -eq 1 ]; then
-        if grep -qxF -e ".seb/bin/" -e ".seb/seb-audit.db*" "$TARGET/.gitignore" 2>/dev/null; then
+        if grep -qxF -e ".seb/bin/" -e ".seb/seb-audit.db*" -e ".seb/ACTIVE_ROLE" "$TARGET/.gitignore" 2>/dev/null; then
             info "[dry-run] Se removerian entradas de seb-harness en $TARGET/.gitignore"
         fi
     else
         temp_gi="$(mktemp)"
-        grep -vxF -e ".seb/bin/" -e ".seb/seb-audit.db*" "$TARGET/.gitignore" > "$temp_gi" || true
+        grep -vxF -e ".seb/bin/" -e ".seb/seb-audit.db*" -e ".seb/ACTIVE_ROLE" "$TARGET/.gitignore" > "$temp_gi" || true
         mv "$temp_gi" "$TARGET/.gitignore"
     fi
 fi

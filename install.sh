@@ -185,7 +185,7 @@ fi
 
 # --- 3. .gitignore --------------------------------------------------------------
 touch "$TARGET/.gitignore"
-for line in ".seb/bin/" ".seb/seb-audit.db*"; do
+for line in ".seb/bin/" ".seb/seb-audit.db*" ".seb/ACTIVE_ROLE"; do
     grep -qxF -- "$line" "$TARGET/.gitignore" || printf '%s\n' "$line" >> "$TARGET/.gitignore"
 done
 

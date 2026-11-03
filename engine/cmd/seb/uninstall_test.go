@@ -149,7 +149,7 @@ func TestUninstallGitignoreAndSebDir(t *testing.T) {
 
 	// Crear .gitignore con lineas del usuario y lineas del arnes
 	gitignorePath := filepath.Join(targetDir, ".gitignore")
-	initialGitignore := "node_modules/\n.seb/bin/\n*.log\n.seb/seb-audit.db*\nbuild/\n"
+	initialGitignore := "node_modules/\n.seb/bin/\n*.log\n.seb/seb-audit.db*\nbuild/\n.seb/ACTIVE_ROLE\n"
 	_ = os.WriteFile(gitignorePath, []byte(initialGitignore), 0644)
 
 	// Crear directorio .seb con contenido
@@ -176,7 +176,7 @@ func TestUninstallGitignoreAndSebDir(t *testing.T) {
 		t.Fatalf("No se pudo leer .gitignore: %v", err)
 	}
 	contentStr := string(updatedGitignore)
-	if strings.Contains(contentStr, ".seb/bin/") || strings.Contains(contentStr, ".seb/seb-audit.db*") {
+	if strings.Contains(contentStr, ".seb/bin/") || strings.Contains(contentStr, ".seb/seb-audit.db*") || strings.Contains(contentStr, ".seb/ACTIVE_ROLE") {
 		t.Fatalf(".gitignore aun contiene entradas del arnes:\n%s", contentStr)
 	}
 	if !strings.Contains(contentStr, "node_modules/") || !strings.Contains(contentStr, "build/") {
@@ -186,7 +186,7 @@ func TestUninstallGitignoreAndSebDir(t *testing.T) {
 	// CL-03: .gitignore que solo tenia entradas del arnes
 	targetDir2 := t.TempDir()
 	gitignoreOnlySeb := filepath.Join(targetDir2, ".gitignore")
-	_ = os.WriteFile(gitignoreOnlySeb, []byte(".seb/bin/\n.seb/seb-audit.db*\n"), 0644)
+	_ = os.WriteFile(gitignoreOnlySeb, []byte(".seb/bin/\n.seb/seb-audit.db*\n.seb/ACTIVE_ROLE\n"), 0644)
 	code, _, _ = runUninstall(t, harnessDir, "", targetDir2)
 	if code != 0 {
 		t.Fatalf("Se esperaba exit code 0 para gitignore solo con seb, se obtuvo %d", code)
