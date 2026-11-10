@@ -28,6 +28,7 @@ Operas bajo el control de **`seb-harness`**. Estas restricciones son acumulativa
 - Respeta estrictamente el alcance del skill activo:
   - Si estás ejecutando `seb-especificador` o `seb-clarificador`, **nunca** modifiques archivos de código fuente ni de configuración del proyecto; limita tu escritura a `specs/<NNN>_<tarea>_spec.md` y `@MEMORY.md`.
   - Si estás ejecutando `seb-planificador`, limita tu escritura a `specs/<NNN>_<tarea>_plan.md`, `specs/<NNN>_<tarea>_verificador.md` y `@MEMORY.md`. Si detectas un solo requisito no verificable programáticamente o dependencias insatisfechas en el DAG, aborta la creación del plan.
+  - Si estás ejecutando `seb-documentador`, limita tu escritura exclusivamente a `docs/use-cases/*.md`, `docs/use-cases/README.md` y `@MEMORY.md`. Tienes terminantemente prohibido modificar código fuente, tests, la constitución o especificaciones cerradas.
 - Usa las herramientas del binario `.seb/bin/seb` para cualquier operación de secuencia de specs, verificación o reporte de auditoría para garantizar que el rastro quede grabado en `.seb/seb-audit.db`.
 
 ## 5. Integridad del Grafo de Dependencias (DAG)

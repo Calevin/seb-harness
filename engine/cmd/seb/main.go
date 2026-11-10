@@ -137,8 +137,10 @@ func ensureDirectories() error {
 		".agents/skills/seb-clarificador",
 		".agents/skills/seb-planificador",
 		".agents/skills/seb-verificador",
+		".agents/skills/seb-documentador",
 		".agents/hooks",
 		"docs",
+		"docs/use-cases",
 		"specs",
 	}
 	for _, d := range dirs {
@@ -768,6 +770,11 @@ func checkPermission(role, action, target string) bool {
 		return (strings.HasPrefix(target, "specs/") && (strings.HasSuffix(target, "_plan.md") || strings.HasSuffix(target, "_verificador.md"))) || target == "MEMORY.md"
 	case "seb-verificador":
 		return target == "MEMORY.md"
+	case "seb-documentador":
+		normalizedTarget := filepath.ToSlash(filepath.Clean(target))
+		return strings.HasPrefix(normalizedTarget, "docs/use-cases/") ||
+			normalizedTarget == "docs/use-cases/README.md" ||
+			normalizedTarget == "MEMORY.md"
 	case "implementador", "default", "":
 		// El agente implementador jamás puede tocar la constitución, specs ni verificadores
 		if target == "docs/constitution.md" ||
@@ -1460,6 +1467,7 @@ var canonicalRoles = map[string]bool{
 	"seb-clarificador":  true,
 	"seb-planificador":  true,
 	"seb-verificador":   true,
+	"seb-documentador":  true,
 	"implementador":     true,
 }
 
@@ -1478,7 +1486,7 @@ func getActiveRolePath() string {
 func setActiveRole(role string, rolePaths ...string) error {
 	norm := normalizeRole(role)
 	if !isCanonicalRole(norm) {
-		return fmt.Errorf("rol '%s' no reconocido. Roles canónicos válidos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, implementador", role)
+		return fmt.Errorf("rol '%s' no reconocido. Roles canónicos válidos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, seb-documentador, implementador", role)
 	}
 	path := defaultActiveRolePath
 	if len(rolePaths) > 0 && rolePaths[0] != "" {
@@ -1527,7 +1535,7 @@ func cmdRole(db *sql.DB, args []string) error {
 	switch sub {
 	case "set":
 		if len(args) < 2 || strings.TrimSpace(args[1]) == "" {
-			return fmt.Errorf("debe especificar un rol válido. Roles canónicos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, implementador")
+			return fmt.Errorf("debe especificar un rol válido. Roles canónicos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, seb-documentador, implementador")
 		}
 		roleArg := args[1]
 		if err := setActiveRole(roleArg); err != nil {

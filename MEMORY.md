@@ -7,9 +7,9 @@
 > - **Invariante del Agente:** Antes de proponer un diseño en `seb-planificador` o escribir código, verifica las secciones 2 y 3 para no reintentar enfoques fallidos.
 
 ## 1. Estado Actual del Proyecto
-- **Fase SDD activa:** Ciclo completado para Spec 009 (`009_aborto_tarea`); verificado y sellado con éxito.
-- **Última Spec verificada:** 009 (`009_aborto_tarea`).
-- **Estado de la suite de verificación:** Motor Go validado (100% de controles en `[PASA]`, `go vet` y tests limpios).
+- **Fase SDD activa:** Ciclo completado para Spec 010 (`010_integracion_documentador`); verificado y sellado con éxito.
+- **Última Spec verificada:** 010 (`010_integracion_documentador`).
+- **Estado de la suite de verificación:** Motor Go validado (100% de controles en `[PASA]`, `go vet` y 47 tests limpios).
 
 ## 2. Callejones sin Salida y Enfoques Descartados (NO REINTENTAR)
 *Registro de librerías, patrones o configuraciones que se probaron en este proyecto y fallaron o resultaron incompatibles.*
@@ -33,3 +33,4 @@
 - `[D-06] Asimilación de Contexto Brownfield y Reversibilidad -> Respaldo automático determinista con infijo .pre-seb.<ext> en install.sh ante archivos ajenos sin firma seb-harness (AGENTS.md, GEMINI.md, CLAUDE.md) -> Asimilación en docs/constitution.md y generación de stubs anti-split-brain en seb-iniciador -> Restauración quirúrgica de archivos *.pre-seb.* en uninstall.sh garantizando reversibilidad total.`
 - `[D-07] Estado Determinista de Sesión y Aislamiento de Habilidades -> Separación de identidad de gobernanza SDD frente a lecturas pasivas de transcripción -> Gestión de rol mediante CLI (seb role set/get/clear) persistido en archivo local .seb/ACTIVE_ROLE -> Precedencia estricta de 4 niveles (SEB_SKILL > ACTIVE_ROLE > transcripción seb-* > implementador) y herencia segura de permisos de implementador en checkPermission para habilidades de dominio externas (como Spring Boot o React), erradicando falsos bloqueos en proyectos brownfield.`
 - `[D-08] Cancelación Formal y Purga Atómica de Tareas -> Soporte dual 'seb abort <tarea> [--purge] [--force|-f]' y alias 'seb task abort' -> Aborto formal por defecto retiene telemetría/costos en SQLite, actualiza spec en disco y sella 'aborted: true' en seb.lock invalidando dependencias en el DAG -> Purga atómica con --purge elimina físicamente artefactos en specs/, suprime registros transaccionalmente en SQLite y libera el identificador secuencial para spec-next.`
+- **[2026-11-10] [Decisión Técnica]** Spec 010: Integración de Fase 6 (seb-documentador) con guardarraíl de menor privilegio restringido a docs/use-cases/ y generación asistida de AGENTS.md.patch.md en install.sh.

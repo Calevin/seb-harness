@@ -10,7 +10,7 @@ Antes de proponer, planificar o modificar cualquier archivo, respeta esta jerarq
 4. **`specs/<NNN>_<tarea>_plan.md` y `specs/<NNN>_<tarea>_verificador.md`**: Definen el **CÓMO** técnico y el contrato de validación programática.
 
 ## 2. Flujo de Trabajo SDD y Skills del Harness
-El desarrollo en este repositorio sigue una máquina de estados estricta gobernada por 5 skills ubicados en `.agents/skills/`:
+El desarrollo en este repositorio sigue una máquina de estados estricta gobernada por 6 skills ubicados en `.agents/skills/`:
 
 - **Fase 0 — Constitución (`seb-iniciador`)**: Analiza un proyecto existente y genera `docs/constitution.md` (Secciones A-F) y la base de `MEMORY.md`. Se ejecuta una vez por proyecto.
 - **Fase 1 — Especificación (`seb-especificador`)**: Transforma una petición en prosa, Jira o GitHub Issue en `specs/<NNN>_<tarea>_spec.md` usando sintaxis EARS e identificadores `RF-XX`.
@@ -18,6 +18,7 @@ El desarrollo en este repositorio sigue una máquina de estados estricta goberna
 - **Fase 3 — Planificación (`seb-planificador`)**: A partir de una spec clarificada, genera `specs/<NNN>_<tarea>_plan.md` y `specs/<NNN>_<tarea>_verificador.md`. **Bloqueo duro**: Prohibido generar el plan si algún requisito carece de verificación programática (test, linter, compilación).
 - **Fase 4 — Implementación (Agente Constructor)**: Escribe el código y los tests siguiendo exactamente `specs/<NNN>_<tarea>_plan.md`.
 - **Fase 5 — Verificación (`seb-verificador`)**: Ejecuta `.seb/bin/seb verify <tarea>`, evalúa de forma determinista los comandos de `specs/<NNN>_<tarea>_verificador.md` y emite el informe de cobertura (`[PASA]` / `[FALLA]`).
+- **Fase 6 — Documentación (`seb-documentador`)**: Genera o actualiza la documentación funcional de casos de uso (UC) y diagramas Mermaid en `docs/use-cases/` a partir de specs aprobadas y verificadas deterministamente.
 
 ## 3. Principio de Menor Privilegio (Guardarraíles por Fase)
 Tienes terminantemente prohibido violar los permisos de tu rol activo:
@@ -30,6 +31,7 @@ Tienes terminantemente prohibido violar los permisos de tu rol activo:
 | `seb-planificador` | Todo el repositorio (solo lectura) | `specs/<NNN>_<tarea>_plan.md`, `specs/<NNN>_<tarea>_verificador.md`, `MEMORY.md` | `.seb/bin/seb plan-lock <tarea>` |
 | **Implementador** | Todo el repositorio | Código fuente, tests, `MEMORY.md` (**PROHIBIDO** editar `constitution.md`, `*_spec.md` o `*_verificador.md`) | Tests, linters, compiladores locales |
 | `seb-verificador` | `specs/*`, resultados de verificación | `MEMORY.md` (solo si detecta limitaciones de entorno) | `.seb/bin/seb verify <tarea>` |
+| `seb-documentador` | `docs/constitution.md`, `specs/*`, código fuente, tests (solo lectura) | `docs/use-cases/*.md`, `docs/use-cases/README.md`, `MEMORY.md` | Inspección pasiva (`git diff`, etc.) |
 
 *Nota de integridad*: Durante la implementación está estrictamente prohibido modificar, comentar o debilitar assertions en `specs/<NNN>_<tarea>_verificador.md` o en tests existentes para forzar un resultado exitoso (*reward-hacking*). Si un test o requisito es inviable técnicamente, detén la implementación, documéntalo en `MEMORY.md` y solicita volver a `seb-clarificador` o `seb-planificador`.
 

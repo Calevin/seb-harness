@@ -123,6 +123,25 @@ else
     if [ -e "$TARGET/AGENTS.md" ]; then
         if has_seb_signature "$TARGET/AGENTS.md"; then
             info "AGENTS.md ya existe con firma seb-harness: se conserva."
+            if ! grep -qi "seb-documentador" "$TARGET/AGENTS.md"; then
+                cat <<'EOF' > "$TARGET/AGENTS.md.patch.md"
+# Fragmento Recomendado para AGENTS.md — Fase 6 (seb-documentador)
+
+Tu archivo `AGENTS.md` conservó tus directivas previas pero no incluye la referencia a la Fase 6 (`seb-documentador`).
+Para habilitar formalmente la documentación funcional en tu proyecto, incorpora los siguientes fragmentos en tu `AGENTS.md`:
+
+## En la Sección 2 ("Flujo de Trabajo SDD y Skills del Harness"):
+
+- **Fase 6 — Documentación (`seb-documentador`)**: Genera o actualiza la documentación funcional de casos de uso (UC) y diagramas Mermaid en `docs/use-cases/` a partir de specs verificadas deterministamente.
+
+## En la Sección 3 ("Principio de Menor Privilegio (Guardarraíles por Fase)"):
+
+| Rol / Skill Activo | Lectura Permitida | Escritura Permitida | Ejecución de Comandos |
+| :--- | :--- | :--- | :--- |
+| `seb-documentador` | `docs/constitution.md`, `specs/*`, código fuente, tests (solo lectura) | `docs/use-cases/*.md`, `docs/use-cases/README.md`, `MEMORY.md` | Inspección pasiva (`git diff`, etc.) |
+EOF
+                warn "Se detectó AGENTS.md sin referencia a seb-documentador. Se generó $TARGET/AGENTS.md.patch.md con el fragmento recomendado para actualizar tu protocolo."
+            fi
         else
             backup_pre_seb "$TARGET/AGENTS.md"
             cp "$PAYLOAD/AGENTS.md" "$TARGET/AGENTS.md"
@@ -149,7 +168,7 @@ else
 fi
 
 chmod +x "$TARGET"/.agents/hooks/* 2>/dev/null || true
-mkdir -p "$TARGET/docs" "$TARGET/specs" "$TARGET/.seb"
+mkdir -p "$TARGET/docs" "$TARGET/docs/use-cases" "$TARGET/specs" "$TARGET/.seb"
 
 if [ "$SELF" -eq 0 ]; then
     version="$(git -C "$HARNESS_DIR" describe --tags --always --dirty 2>/dev/null || echo unknown)"
