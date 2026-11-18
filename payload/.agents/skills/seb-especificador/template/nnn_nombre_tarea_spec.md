@@ -4,6 +4,7 @@
 - **Identificador:** `<nombre_tarea>`
 - **Origen:** [Prosa / Jira: KEY-123 / GitHub Issue: #123]
 - **Estado:** `BORRADOR`
+- **Afecta-UC:** [`UC-<dominio>_<accion>` | `nuevo` | `ninguno`]
 
 ## 1. Contexto y Objetivo (El POR QUÉ)
 
