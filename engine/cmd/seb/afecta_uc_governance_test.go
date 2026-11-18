@@ -34,9 +34,9 @@ func TestEspecificadorAfectaUCDirectives(t *testing.T) {
 		}
 	}
 
-	// Verificar regla de division cuando afecta multiples casos de uso
-	if !strings.Contains(skillContent, "more than one independent `UC-<dominio>_<accion>`") {
-		t.Errorf("seb-especificador/SKILL.md debe instruir la division cuando afecte multiples UCs")
+	// Verificar criterio multi-UC (Spec 014 RF-13 sustituye CL-03 de la Spec 011): lista si es cohesivo, division si es independiente
+	if !strings.Contains(skillContent, "cohesive") {
+		t.Errorf("seb-especificador/SKILL.md debe instruir el criterio multi-UC cohesivo/independiente")
 	}
 
 	templatePath := filepath.Join(repoRoot, "payload", ".agents", "skills", "seb-especificador", "template", "nnn_nombre_tarea_spec.md")
@@ -46,7 +46,8 @@ func TestEspecificadorAfectaUCDirectives(t *testing.T) {
 	}
 	templateContent := string(templateBytes)
 
-	expectedHeaderLine := "- **Afecta-UC:** [`UC-<dominio>_<accion>` | `nuevo` | `ninguno`]"
+	// Spec 014 RF-14: literal de plantilla actualizado con sintaxis de lista
+	expectedHeaderLine := "- **Afecta-UC:** [`UC-<dominio>_<accion>` | `nuevo` | `ninguno` | lista: `UC-<dominio>_<accion>`, `nuevo`]"
 	if !strings.Contains(templateContent, expectedHeaderLine) {
 		t.Errorf("La plantilla base debe incluir exactamente la linea %q", expectedHeaderLine)
 	}

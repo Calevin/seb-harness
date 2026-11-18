@@ -83,9 +83,20 @@ sequenceDiagram
 2. **Evaluacion de Caso de Uso Existente (Documentacion Viva):**
    - Si el metadato indica un caso de uso preexistente (ej. `UC-auth_login`), leer `docs/use-cases/UC-auth_login.md` y actualizar las secciones impactadas registrando la revision.
    - Si indica `nuevo` o el caso no existe, crear `docs/use-cases/UC-<dominio>_<accion>.md`.
+   - Si `Afecta-UC:` declara una lista (elementos entre backticks separados por coma y espacio, sin orden significativo), actualizar cada caso de uso `UC-<dominio>_<accion>` declarado.
+   - Si `Afecta-UC:` contiene `nuevo` (como valor simple o dentro de una lista), determinar a partir de los `RF-XX` la cantidad de casos de uso nuevos (uno o mas) y asignar a cada uno un identificador `UC-<dominio>_<accion>` inexistente en el catalogo.
 3. **Generacion del Artefacto:**
    - Inspeccionar el codigo implementado para extraer nombres reales de comandos, DTOs y eventos (en ingles).
    - Redactar las explicaciones funcionales en espanol formal, sin emojis y con `autonumber` en Mermaid.
 4. **Actualizacion del Catalogo General:**
    - Si `docs/use-cases/README.md` no existe, crearlo con una tabla indice.
    - Registrar o actualizar la fila del caso de uso en `docs/use-cases/README.md` indicando ID, descripcion y spec originaria.
+   - La tabla indice debe mantener la columna "Specs de Evolución" inmediatamente despues de "Spec Originaria":
+
+     ```markdown
+     | ID Caso de Uso | Dominio | Descripcion Funcional | Spec Originaria | Specs de Evolución | Estado |
+     | :--- | :--- | :--- | :--- | :--- | :--- |
+     ```
+
+   - Al actualizar un caso de uso existente, agregar la ruta de la spec procesada a "Specs de Evolución" de su fila, sin modificar su "Spec Originaria" y sin duplicar rutas ya registradas.
+   - Si `docs/use-cases/README.md` existe sin la columna "Specs de Evolución", agregarla y completar con `-` las filas que no tengan specs de evolución registradas.

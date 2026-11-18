@@ -36,7 +36,12 @@ Your mission is to audit a draft specification (`specs/<NNN>_<tarea>_spec.md`) a
      - The header contains `- **Afecta-UC:**` with its value wrapped in backticks (`UC-<dominio>_<accion>`, `nuevo`, or `ninguno`), rejecting empty values or unresolved template placeholders.
      - When `Afecta-UC:` declares `` `UC-<dominio>_<accion>` ``, that identifier exists in `docs/use-cases/README.md` (if `docs/use-cases/README.md` does not exist, treat the reference as nonexistent).
      - There is no contradiction between `Afecta-UC:` and the `RF-XX` requirements (e.g., declaring `` `ninguno` `` when `RF-XX` define observable external functional behavior, or declaring `` `nuevo` `` when `RF-XX` modify an already cataloged use case).
-     - _(Backward compatibility: do not retroactively require `Afecta-UC:` on closed historical specs `001` through `010`)._
+     - When `Afecta-UC:` declares a list (comma-and-space separated elements, each wrapped in backticks):
+       - Validate that each element is a `` `UC-<dominio>_<accion>` `` identifier or `` `nuevo` ``, and that each `UC-<dominio>_<accion>` element exists in `docs/use-cases/README.md`.
+       - The order of the elements is irrelevant: do not raise observations about ordering.
+       - Verify that every declared element is backed by at least one `RF-XX`, and that no `RF-XX` modifies a cataloged use case absent from the list.
+       - Reject the list (as a direct question in Phase 2) if it contains `ninguno` combined with other elements, an element without backticks, a separator other than comma and space, duplicate elements (including repeated `nuevo`), or a `UC-*` not present in `docs/use-cases/README.md`.
+     - _(Backward compatibility: do not retroactively require `Afecta-UC:` on closed historical specs `001` through `010`; specs declaring a single value remain valid)._
 
 ### Phase 2: The Interrogation (Human in the Loop)
 
@@ -97,6 +102,7 @@ Once normal answers are received or a previously blocked spec is resumed:
 - It is in state `BLOQUEADA_POR_DEPENDENCIA`.
 - It contains an unfulfilled `Contrato de Desbloqueo Requerido`.
 - It lacks a valid, backtick-wrapped `Afecta-UC:` header field (`UC-<dominio>_<accion>`, `nuevo`, or `ninguno`), references a `UC-*` not present in `docs/use-cases/README.md`, or contradicts its `RF-XX` requirements.
+- It declares an invalid `Afecta-UC:` list (`ninguno` combined, missing backticks, wrong separator, duplicate elements, nonexistent `UC-*`, or an element not backed by any `RF-XX`).
 
 Once all conditions are fully met and strictly zero clarification tags remain:
 
