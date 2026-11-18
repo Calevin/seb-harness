@@ -1,0 +1,40 @@
+# Catalogo General de Casos de Uso — seb-harness
+
+> **Documentacion Viva (Fase 6 — `seb-documentador`):** Este indice consolida los contratos funcionales en caja negra (*black-box*) derivados de las especificaciones aprobadas y verificadas deterministamente en `specs/`.
+
+## Indice de Casos de Uso
+
+| ID Caso de Uso | Dominio | Descripcion Funcional | Spec Originaria | Estado |
+| :--- | :--- | :--- | :--- | :--- |
+| [UC-telemetry_action_logging](./UC-telemetry_action_logging.md) | Telemetria y Auditoria | Registro de duracion en milisegundos, cascada de tarea activa, calculo de costos USD por modelo, importacion idempotente de `usage.jsonl` y reporte consolidado. | `specs/001_registro_telemetria_acciones_spec.md` | Verificado |
+| [UC-artifacts_sequential_naming](./UC-artifacts_sequential_naming.md) | Gobernanza de Artefactos | Homogeneizacion de prefijo secuencial `<NNN>_` en la triada SDD (`spec`, `plan`, `verificador`), sellado con clave canonica en `seb.lock` y resolucion flexible de tareas. | `specs/002_prefijo_secuencial_artefactos_spec.md` | Verificado |
+| [UC-provisioning_harness_uninstall](./UC-provisioning_harness_uninstall.md) | Aprovisionamiento | Desinstalacion quirurgica e idempotente del arnes (`uninstall.sh`), reversion de Git hooks, restauracion de respaldos y modos `--self`, `--dry-run` y `--purge`. | `specs/003_desinstalacion_arnes_spec.md` | Verificado |
+| [UC-telemetry_antigravity_interception](./UC-telemetry_antigravity_interception.md) | Telemetria e Intercepcion | Intercepcion de ciclo de vida (`PreToolUse`, `PostToolUse`, `Stop`), extraccion deduplicada de tokens y `cache_read_tokens` desde transcripcion y saneamiento de rutas. | `specs/004_captura_telemetria_antigravity_spec.md` | Verificado |
+| [UC-dag_dependency_management](./UC-dag_dependency_management.md) | Grafo de Dependencias (DAG) | Declaracion `Depends-On`, validacion determinista de prerrequisitos y ciclos en `plan-lock`, sellado de `verified` y `commit_hash`, y protocolo de Scope Fork. | `specs/005_gestion_grafo_dependencias_spec.md` | Verificado |
+| [UC-verifier_table_parsing](./UC-verifier_table_parsing.md) | Motor de Verificacion | Analizador sintactico contextual de tablas verificadoras con soporte de requisitos heterogeneos, aislamiento de pipes entre backticks y politica Anti-Silent-Drop. | `specs/006_parser_tabla_verificacion_spec.md` | Verificado |
+| [UC-brownfield_context_assimilation](./UC-brownfield_context_assimilation.md) | Aprovisionamiento Brownfield | Deteccion de firma `seb-harness`, respaldo determinista `*.pre-seb.*`, asimilacion en `docs/constitution.md`, stubs de redireccion y restauracion al desinstalar. | `specs/007_migracion_contexto_brownfield_spec.md` | Verificado |
+| [UC-session_role_management](./UC-session_role_management.md) | Seguridad y Menor Privilegio | Gestion determinista de rol activo (`seb role set/get/clear`), jerarquia de precedencia de 4 niveles y aislamiento de lecturas pasivas de habilidades de dominio. | `specs/008_estado_sesion_determinista_spec.md` | Verificado |
+| [UC-task_abort_and_purge](./UC-task_abort_and_purge.md) | Ciclo de Vida de Tareas | Cancelacion formal (`ABORTED` preservando telemetria) y purga atomica (`--purge`) de tareas con guardarrailes para tareas verificadas o con dependientes en el DAG. | `specs/009_aborto_tarea_spec.md` | Verificado |
+| [UC-documentation_functional_generation](./UC-documentation_functional_generation.md) | Documentacion Funcional | Integracion de la Fase 6 (`seb-documentador`), estructura estandar de casos de uso con diagramas Mermaid, guardarrailes de escritura y generacion de `AGENTS.md.patch.md`. | `specs/010_integracion_documentador_spec.md` | Verificado |
+
+## Mapa de Relaciones por Dominio
+
+```mermaid
+flowchart LR
+    subgraph Provisioning["Provisioning & Brownfield"]
+        UC007["UC-brownfield_context_assimilation (Spec 007)"] --> UC003["UC-provisioning_harness_uninstall (Spec 003)"]
+    end
+
+    subgraph CoreSDD["SDD Lifecycle & Verification"]
+        UC002["UC-artifacts_sequential_naming (Spec 002)"] --> UC005["UC-dag_dependency_management (Spec 005)"]
+        UC002 --> UC006["UC-verifier_table_parsing (Spec 006)"]
+        UC005 --> UC009["UC-task_abort_and_purge (Spec 009)"]
+        UC006 --> UC010["UC-documentation_functional_generation (Spec 010)"]
+    end
+
+    subgraph SecurityAndTelemetry["Security & Observability"]
+        UC001["UC-telemetry_action_logging (Spec 001)"] --> UC004["UC-telemetry_antigravity_interception (Spec 004)"]
+        UC004 --> UC008["UC-session_role_management (Spec 008)"]
+        UC008 --> UC010
+    end
+```
