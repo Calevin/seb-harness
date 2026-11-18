@@ -204,6 +204,64 @@ if [ -d "$TARGET/.agents" ]; then
     fi
 fi
 
+# 3.3.5 Limpieza quirurgica de integracion Claude (.claude/)
+if [ -d "$TARGET/.claude" ]; then
+    for sub in hooks rules skills; do
+        claude_path="$TARGET/.claude/$sub"
+        if [ -L "$claude_path" ]; then
+            link_target="$(readlink "$claude_path" || true)"
+            if [ "$link_target" = "../.agents/$sub" ] || [ "$link_target" = ".agents/$sub" ] || [ "$link_target" = "$TARGET/.agents/$sub" ]; then
+                if [ "$DRY_RUN" -eq 1 ]; then
+                    info "[dry-run] Se removeria el symlink $claude_path"
+                else
+                    rm -f "$claude_path"
+                    info "Removido symlink .claude/$sub"
+                fi
+            fi
+        fi
+    done
+
+    settings_file="$TARGET/.claude/settings.json"
+    if [ -f "$settings_file" ] && [ -s "$settings_file" ]; then
+        if command -v jq >/dev/null 2>&1; then
+            jq -e 'type == "object"' "$settings_file" >/dev/null 2>&1 || die "Error procesando $settings_file (JSON invalido o no es un objeto)."
+            if [ "$DRY_RUN" -eq 1 ]; then
+                info "[dry-run] Se limpiarian hooks de seb-harness en $settings_file"
+            else
+                tmp_json="$(mktemp)"
+                jq '
+                    if (.hooks | type) == "object" then
+                        .hooks |= with_entries(
+                            if (.key == "PreToolUse" or .key == "PostToolUse" or .key == "Stop") and (.value | type) == "array" then
+                                .value |= map(
+                                    select(((.hooks // []) | any(.command? // "" | test("\\.claude/hooks/(pre-tool|post-tool|stop)\\.sh"))) | not)
+                                )
+                            else
+                                .
+                            end
+                        ) |
+                        .hooks |= with_entries(select(((.key == "PreToolUse" or .key == "PostToolUse" or .key == "Stop") and (.value == [])) | not)) |
+                        if .hooks == {} then del(.hooks) else . end
+                    else
+                        .
+                    end
+                ' "$settings_file" > "$tmp_json" || { rm -f "$tmp_json"; die "Error limpiando $settings_file."; }
+                if [ "$(jq -c '.' "$tmp_json")" = "{}" ]; then
+                    rm -f "$tmp_json" "$settings_file"
+                    info "Removido $settings_file (sin configuracion restante)."
+                else
+                    mv "$tmp_json" "$settings_file"
+                    info "Removidos hooks de seb-harness en .claude/settings.json"
+                fi
+            fi
+        fi
+    fi
+
+    if [ "$DRY_RUN" -eq 0 ]; then
+        rmdir "$TARGET/.claude" 2>/dev/null || true
+    fi
+fi
+
 # 3.4 Purga opcional de artefactos de gobernanza y specs
 if [ "$PURGE" -eq 1 ]; then
     if [ "$DRY_RUN" -eq 1 ]; then

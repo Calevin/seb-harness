@@ -1694,13 +1694,20 @@ type TranscriptStep struct {
 	ToolCalls       []HookTool `json:"tool_calls"`
 }
 
-// 8. seb hook <pre-tool|post-tool|stop>
+// 8. seb hook <pre-tool|post-tool|stop> [--format antigravity|claude]
 func cmdHook(db *sql.DB, args []string) {
-	if len(args) < 1 {
-		fmt.Println("{}")
+	format, remArgs, err := resolveHookFormat(args, os.Getenv("SEB_HOOK_FORMAT"))
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[ERROR] %v\n", err)
+		os.Exit(1)
+	}
+	if len(remArgs) < 1 {
+		if format == FormatAntigravity {
+			fmt.Println("{}")
+		}
 		return
 	}
-	sub := args[0]
+	sub := remArgs[0]
 	var payload []byte
 	if stat, err := os.Stdin.Stat(); err == nil && (stat.Mode()&os.ModeCharDevice) == 0 {
 		payload, _ = io.ReadAll(os.Stdin)
@@ -1710,16 +1717,24 @@ func cmdHook(db *sql.DB, args []string) {
 
 	switch sub {
 	case "pre-tool":
-		out, _ := processHookPreTool(db, payload, envSkill, ".seb/ACTIVE_TASK", cwd)
-		fmt.Println(out)
+		out, emit, _ := processHookPreToolWithFormat(db, payload, envSkill, ".seb/ACTIVE_TASK", cwd, format)
+		if emit {
+			fmt.Println(out)
+		}
 	case "post-tool":
-		out, _ := processHookPostTool(db, payload, envSkill, ".seb/ACTIVE_TASK", cwd, ".seb/config.json")
-		fmt.Println(out)
+		out, emit, _ := processHookPostToolWithFormat(db, payload, envSkill, ".seb/ACTIVE_TASK", cwd, ".seb/config.json", format)
+		if emit {
+			fmt.Println(out)
+		}
 	case "stop":
-		out, _ := processHookStop(db, payload, envSkill, ".seb/ACTIVE_TASK", cwd, ".seb/config.json")
-		fmt.Println(out)
+		out, emit, _ := processHookStopWithFormat(db, payload, envSkill, ".seb/ACTIVE_TASK", cwd, ".seb/config.json", format)
+		if emit {
+			fmt.Println(out)
+		}
 	default:
-		fmt.Println("{}")
+		if format == FormatAntigravity {
+			fmt.Println("{}")
+		}
 	}
 }
 
@@ -1884,7 +1899,7 @@ func extractTargetAndCommand(tc *HookTool, workspaceRoot string) (string, string
 		}
 		s = strings.Trim(s, `"`)
 		kl := strings.ToLower(k)
-		if kl == "path" || kl == "file_path" || kl == "targetfile" || kl == "filepath" {
+		if kl == "path" || kl == "file_path" || kl == "targetfile" || kl == "filepath" || kl == "notebook_path" {
 			targetPath = s
 		}
 		if kl == "commandline" || kl == "command" || kl == "cmd" {
@@ -1912,76 +1927,10 @@ func timerFilePath(sessionID string, stepIdx int, toolName string) string {
 var dangerousCmdRegex = regexp.MustCompile(`(rm\s+-rf\s+/|git\s+commit.*--no-verify|git\s+push.*--force|chmod\s+777)`)
 var shellRedirectContractRegex = regexp.MustCompile(`(>|tee|sed\s+-i).*(constitution\.md|_spec\.md|_verificador\.md)`)
 
-// processHookPreTool ejecuta la logica de PreToolUse y devuelve el contrato JSON
+// processHookPreTool ejecuta la logica de PreToolUse en formato Antigravity
 func processHookPreTool(db *sql.DB, payloadBytes []byte, envSkill, activeTaskPath, workspaceRoot string) (string, error) {
-	var p HookPayload
-	if len(payloadBytes) > 0 {
-		_ = json.Unmarshal(payloadBytes, &p)
-	}
-	if len(p.WorkspacePaths) > 0 && p.WorkspacePaths[0] != "" {
-		workspaceRoot = p.WorkspacePaths[0]
-	}
-
-	sessionID := p.ConversationID
-	if sessionID == "" {
-		sessionID = "local-" + time.Now().Format("20060102")
-	}
-	stepIdx := 0
-	if p.StepIdx != nil {
-		stepIdx = *p.StepIdx
-	}
-	toolName := "unknown"
-	if p.ToolCall != nil && p.ToolCall.Name != "" {
-		toolName = p.ToolCall.Name
-	}
-
-	// Guardar timestamp de inicio en milisegundos
-	tFile := timerFilePath(sessionID, stepIdx, toolName)
-	_ = os.WriteFile(tFile, []byte(fmt.Sprintf("%d", time.Now().UnixMilli())), 0644)
-
-	rolePath := defaultActiveRolePath
-	if workspaceRoot != "" {
-		rolePath = filepath.Join(workspaceRoot, defaultActiveRolePath)
-	}
-	activeRole := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath, rolePath)
-	targetPath, cmdStr := extractTargetAndCommand(p.ToolCall, workspaceRoot)
-
-	// 1. Bloqueo de archivos sensibles
-	if targetPath != "" {
-		base := filepath.Base(targetPath)
-		if base == ".env" || strings.HasPrefix(base, ".env.") || strings.Contains(base, "id_rsa") ||
-			strings.Contains(base, "id_ed25519") || strings.HasSuffix(base, ".pem") || strings.HasSuffix(base, ".key") {
-			return marshalHookDecision("deny", fmt.Sprintf("[seb-harness BLOQUEO DE SEGURIDAD] Acceso denegado al archivo sensible: %s", base)), nil
-		}
-	}
-
-	// 2. Bloqueo de comandos destructivos o evasion
-	if cmdStr != "" {
-		if dangerousCmdRegex.MatchString(cmdStr) {
-			return marshalHookDecision("deny", "[seb-harness BLOQUEO DE SEGURIDAD] Comando peligroso o evasion de verificacion detectada."), nil
-		}
-		if activeRole == "implementador" || activeRole == "" {
-			if shellRedirectContractRegex.MatchString(cmdStr) {
-				return marshalHookDecision("deny", "[seb-harness ANTI-REWARD-HACKING] Prohibido modificar contratos SDD mediante comandos de shell."), nil
-			}
-		}
-	}
-
-	// 3. Verificacion de Menor Privilegio en herramientas de escritura
-	if targetPath != "" {
-		tl := strings.ToLower(toolName)
-		if strings.Contains(tl, "write") || strings.Contains(tl, "edit") || strings.Contains(tl, "patch") ||
-			strings.Contains(tl, "create") || strings.Contains(tl, "replace") || strings.Contains(tl, "save") {
-			if !checkPermission(activeRole, "write", filepath.Clean(targetPath)) {
-				if db != nil {
-					logInternalAction(db, "", activeRole, "guard-blocked:write", targetPath, "DENIED", 0, 1)
-				}
-				return marshalHookDecision("deny", fmt.Sprintf("GUARDARRAIL DE MENOR PRIVILEGIO: El rol '%s' NO tiene permiso de escritura sobre '%s'.", activeRole, targetPath)), nil
-			}
-		}
-	}
-
-	return marshalHookDecision("allow", ""), nil
+	out, _, err := processHookPreToolWithFormat(db, payloadBytes, envSkill, activeTaskPath, workspaceRoot, FormatAntigravity)
+	return out, err
 }
 
 func marshalHookDecision(decision, reason string) string {
@@ -2037,158 +1986,14 @@ func findPlannerStepMetrics(transcriptPath string, targetStepIdx int) (plannerSt
 	return -1, 0, 0, 0, false
 }
 
-// processHookPostTool ejecuta la logica de PostToolUse y devuelve "{}"
+// processHookPostTool ejecuta la logica de PostToolUse en formato Antigravity
 func processHookPostTool(db *sql.DB, payloadBytes []byte, envSkill, activeTaskPath, workspaceRoot, configPath string) (string, error) {
-	nowMs := time.Now().UnixMilli()
-	var p HookPayload
-	if len(payloadBytes) > 0 {
-		_ = json.Unmarshal(payloadBytes, &p)
-	}
-	if len(p.WorkspacePaths) > 0 && p.WorkspacePaths[0] != "" {
-		workspaceRoot = p.WorkspacePaths[0]
-	}
-
-	sessionID := p.ConversationID
-	if sessionID == "" {
-		sessionID = "local-" + time.Now().Format("20060102")
-	}
-	stepIdx := -1
-	if p.StepIdx != nil {
-		stepIdx = *p.StepIdx
-	}
-	toolName := "tool_call"
-	var toolArgs map[string]interface{}
-	if p.ToolCall != nil {
-		if p.ToolCall.Name != "" {
-			toolName = p.ToolCall.Name
-		}
-		toolArgs = p.ToolCall.Args
-	}
-
-	// Calcular duracion desde archivo timer
-	var durationMs int64
-	tFile := timerFilePath(sessionID, stepIdx, toolName)
-	if data, err := os.ReadFile(tFile); err == nil {
-		var startMs int64
-		if _, err := fmt.Sscanf(strings.TrimSpace(string(data)), "%d", &startMs); err == nil && startMs > 0 {
-			durationMs = normalizeDuration(nowMs - startMs)
-		}
-		_ = os.Remove(tFile)
-	}
-
-	rolePath := defaultActiveRolePath
-	if workspaceRoot != "" {
-		rolePath = filepath.Join(workspaceRoot, defaultActiveRolePath)
-	}
-	activeSkill := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath, rolePath)
-	sanitizedParams := sanitizeToolParams(toolArgs, workspaceRoot)
-
-	exitCode := 0
-	resultSummary := "ok"
-	if strings.TrimSpace(p.Error) != "" {
-		exitCode = 1
-		resultSummary = sanitizeStringValue(p.Error, workspaceRoot)
-	}
-
-	agentName := p.ModelName
-	if agentName == "" {
-		agentName = os.Getenv("SEB_AGENT")
-	}
-	if agentName == "" {
-		agentName = "antigravity"
-	}
-
-	// Extraer tokens del paso PLANNER_RESPONSE correspondiente y deduplicar por (session_id, step_idx)
-	var tokIn, cacheRead, tokOut int64
-	recordedStepIdx := stepIdx
-	if plannerIdx, tIn, tCache, tOut, ok := findPlannerStepMetrics(p.TranscriptPath, stepIdx); ok {
-		recordedStepIdx = plannerIdx
-		alreadyCounted := false
-		if db != nil && plannerIdx >= 0 {
-			var existing int
-			err := db.QueryRow(`SELECT COUNT(*) FROM agent_actions WHERE session_id = ? AND step_idx = ? AND (tokens_in > 0 OR cache_read_tokens > 0 OR tokens_out > 0)`,
-				sessionID, plannerIdx).Scan(&existing)
-			if err == nil && existing > 0 {
-				alreadyCounted = true
-			}
-		}
-		if !alreadyCounted {
-			tokIn = tIn
-			cacheRead = tCache
-			tokOut = tOut
-		}
-	}
-
-	if db != nil {
-		resolvedTask := resolveActiveTask("", os.Getenv("SEB_TASK_ID"), activeTaskPath, db)
-		cost := calculateCost(0.0, p.ModelName, tokIn, tokOut, configPath)
-		_, _ = db.Exec(`INSERT INTO agent_actions
-			(session_id, task_id, agent, skill, action, parameters, result_summary, level, duration_ms, tokens_in, cache_read_tokens, tokens_out, cost_usd, exit_code, step_idx)
-			VALUES (?, ?, ?, ?, ?, ?, ?, 'autonomous', ?, ?, ?, ?, ?, ?, ?)`,
-			sessionID, resolvedTask, agentName, activeSkill, toolName, sanitizedParams, resultSummary, durationMs, tokIn, cacheRead, tokOut, cost, exitCode, recordedStepIdx)
-	}
-
-	return "{}", nil
+	out, _, err := processHookPostToolWithFormat(db, payloadBytes, envSkill, activeTaskPath, workspaceRoot, configPath, FormatAntigravity)
+	return out, err
 }
 
-// processHookStop inspecciona transcriptPath al cierre de turno y registra pasos PLANNER_RESPONSE no contabilizados
+// processHookStop inspecciona transcriptPath al cierre de turno en formato Antigravity
 func processHookStop(db *sql.DB, payloadBytes []byte, envSkill, activeTaskPath, workspaceRoot, configPath string) (string, error) {
-	var p HookPayload
-	if len(payloadBytes) > 0 {
-		_ = json.Unmarshal(payloadBytes, &p)
-	}
-	if len(p.WorkspacePaths) > 0 && p.WorkspacePaths[0] != "" {
-		workspaceRoot = p.WorkspacePaths[0]
-	}
-
-	sessionID := p.ConversationID
-	if sessionID == "" {
-		sessionID = "local-" + time.Now().Format("20060102")
-	}
-	agentName := p.ModelName
-	if agentName == "" {
-		agentName = "antigravity"
-	}
-
-	if db != nil && p.TranscriptPath != "" {
-		if f, err := os.Open(p.TranscriptPath); err == nil {
-			defer f.Close()
-			rolePath := defaultActiveRolePath
-	if workspaceRoot != "" {
-		rolePath = filepath.Join(workspaceRoot, defaultActiveRolePath)
-	}
-	activeSkill := inferActiveSkill(envSkill, p.TranscriptPath, activeTaskPath, rolePath)
-			resolvedTask := resolveActiveTask("", os.Getenv("SEB_TASK_ID"), activeTaskPath, db)
-
-			scanner := bufio.NewScanner(f)
-			buf := make([]byte, 0, 64*1024)
-			scanner.Buffer(buf, 2*1024*1024)
-
-			for scanner.Scan() {
-				line := scanner.Text()
-				if !strings.Contains(line, "PLANNER_RESPONSE") {
-					continue
-				}
-				var st TranscriptStep
-				if err := json.Unmarshal([]byte(line), &st); err == nil && st.Type == "PLANNER_RESPONSE" {
-					if st.InputTokens == 0 && st.CacheReadTokens == 0 && st.OutputTokens == 0 {
-						continue
-					}
-					var existing int
-					err := db.QueryRow(`SELECT COUNT(*) FROM agent_actions WHERE session_id = ? AND step_idx = ?`,
-						sessionID, st.StepIndex).Scan(&existing)
-					if err == nil && existing == 0 {
-						cost := calculateCost(0.0, p.ModelName, st.InputTokens, st.OutputTokens, configPath)
-						params := fmt.Sprintf(`{"step_index":%d}`, st.StepIndex)
-						_, _ = db.Exec(`INSERT INTO agent_actions
-							(session_id, task_id, agent, skill, action, parameters, result_summary, level, duration_ms, tokens_in, cache_read_tokens, tokens_out, cost_usd, exit_code, step_idx)
-							VALUES (?, ?, ?, ?, 'model_response', ?, 'ok', 'autonomous', 0, ?, ?, ?, ?, 0, ?)`,
-							sessionID, resolvedTask, agentName, activeSkill, params, st.InputTokens, st.CacheReadTokens, st.OutputTokens, cost, st.StepIndex)
-					}
-				}
-			}
-		}
-	}
-
-	return `{"decision":"allow"}`, nil
+	out, _, err := processHookStopWithFormat(db, payloadBytes, envSkill, activeTaskPath, workspaceRoot, configPath, FormatAntigravity)
+	return out, err
 }

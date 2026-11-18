@@ -170,6 +170,131 @@ fi
 chmod +x "$TARGET"/.agents/hooks/* 2>/dev/null || true
 mkdir -p "$TARGET/docs" "$TARGET/docs/use-cases" "$TARGET/specs" "$TARGET/.seb"
 
+# --- 1.5 Integracion Claude (Claude Code y Claude Desktop) ---------------------
+setup_claude_integration() {
+    mkdir -p "$TARGET/.claude"
+    for sub in hooks rules skills; do
+        local claude_path="$TARGET/.claude/$sub"
+        if [ -e "$claude_path" ] || [ -L "$claude_path" ]; then
+            info ".claude/$sub ya existe: se conserva."
+        else
+            ln -s "../.agents/$sub" "$claude_path"
+            info "Creado enlace simbolico .claude/$sub -> ../.agents/$sub"
+        fi
+    done
+
+    local settings_file="$TARGET/.claude/settings.json"
+    if command -v jq >/dev/null 2>&1; then
+        local base_json="{}"
+        if [ -f "$settings_file" ]; then
+            if [ -s "$settings_file" ]; then
+                jq -e 'type == "object"' "$settings_file" >/dev/null 2>&1 || die "Error procesando $settings_file (JSON invalido o no es un objeto)."
+                base_json="$(cat "$settings_file")"
+            fi
+        fi
+
+        local tmp_json
+        tmp_json="$(mktemp)"
+        printf '%s\n' "$base_json" | jq '
+            .hooks = (.hooks // {}) |
+            def ensure_hook($ev; $script; $with_matcher):
+                .hooks[$ev] = (.hooks[$ev] // []) |
+                if (.hooks[$ev] | any(.hooks[]? | (.command // "") | contains(".claude/hooks/" + $script))) then
+                    .
+                else
+                    .hooks[$ev] += [
+                        (if $with_matcher then
+                            {"matcher": "", "hooks": [{"type": "command", "command": ("$CLAUDE_PROJECT_DIR/.claude/hooks/" + $script + " --format claude")}]}
+                        else
+                            {"hooks": [{"type": "command", "command": ("$CLAUDE_PROJECT_DIR/.claude/hooks/" + $script + " --format claude")}]}
+                        end)
+                    ]
+                end;
+            ensure_hook("PreToolUse"; "pre-tool.sh"; true) |
+            ensure_hook("PostToolUse"; "post-tool.sh"; true) |
+            ensure_hook("Stop"; "stop.sh"; false)
+        ' > "$tmp_json" || { rm -f "$tmp_json"; die "Error fusionando $settings_file."; }
+        mv "$tmp_json" "$settings_file"
+    elif command -v python3 >/dev/null 2>&1; then
+        python3 - "$settings_file" <<'PYEOF' || die "Error procesando $settings_file (verifique que el JSON existente sea valido)."
+import json
+import os
+import sys
+
+settings_path = sys.argv[1]
+data = {}
+if os.path.exists(settings_path):
+    with open(settings_path, "r", encoding="utf-8") as f:
+        content = f.read().strip()
+        if content:
+            data = json.loads(content)
+            if not isinstance(data, dict):
+                raise ValueError("settings.json debe ser un objeto JSON")
+
+hooks = data.get("hooks")
+if hooks is None:
+    hooks = {}
+    data["hooks"] = hooks
+elif not isinstance(hooks, dict):
+    raise ValueError("La clave 'hooks' en settings.json debe ser un objeto")
+
+desired = [
+    ("PreToolUse", "pre-tool.sh", True),
+    ("PostToolUse", "post-tool.sh", True),
+    ("Stop", "stop.sh", False),
+]
+
+changed = False
+for event_name, script_name, include_matcher in desired:
+    event_list = hooks.get(event_name)
+    if event_list is None:
+        event_list = []
+        hooks[event_name] = event_list
+    elif not isinstance(event_list, list):
+        raise ValueError(f"La clave hooks.{event_name} debe ser una lista")
+
+    already_present = False
+    for entry in event_list:
+        if not isinstance(entry, dict):
+            continue
+        inner_hooks = entry.get("hooks", [])
+        if not isinstance(inner_hooks, list):
+            continue
+        for h in inner_hooks:
+            if isinstance(h, dict) and f".claude/hooks/{script_name}" in str(h.get("command", "")):
+                already_present = True
+                break
+        if already_present:
+            break
+
+    if not already_present:
+        new_entry = {
+            "hooks": [
+                {
+                    "type": "command",
+                    "command": f"$CLAUDE_PROJECT_DIR/.claude/hooks/{script_name} --format claude",
+                }
+            ]
+        }
+        if include_matcher:
+            new_entry["matcher"] = ""
+        event_list.append(new_entry)
+        changed = True
+
+if changed or not os.path.exists(settings_path):
+    with open(settings_path, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=2, ensure_ascii=False)
+        f.write("\n")
+PYEOF
+    else
+        warn "jq/python3 no disponibles: no se pudo generar/fusionar $settings_file automaticamente."
+        return 0
+    fi
+    info "Configuracion de hooks Claude verificada en .claude/settings.json"
+}
+
+setup_claude_integration
+
 if [ "$SELF" -eq 0 ]; then
     version="$(git -C "$HARNESS_DIR" describe --tags --always --dirty 2>/dev/null || echo unknown)"
     printf '%s\n' "$version" > "$TARGET/.seb/VERSION"

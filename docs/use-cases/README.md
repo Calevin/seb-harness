@@ -16,6 +16,7 @@
 | [UC-session_role_management](./UC-session_role_management.md) | Seguridad y Menor Privilegio | Gestion determinista de rol activo (`seb role set/get/clear`), jerarquia de precedencia de 4 niveles y aislamiento de lecturas pasivas de habilidades de dominio. | `specs/008_estado_sesion_determinista_spec.md` | Verificado |
 | [UC-task_abort_and_purge](./UC-task_abort_and_purge.md) | Ciclo de Vida de Tareas | Cancelacion formal (`ABORTED` preservando telemetria) y purga atomica (`--purge`) de tareas con guardarrailes para tareas verificadas o con dependientes en el DAG. | `specs/009_aborto_tarea_spec.md` | Verificado |
 | [UC-documentation_functional_generation](./UC-documentation_functional_generation.md) | Documentacion Funcional | Integracion de la Fase 6 (`seb-documentador`), estructura estandar de casos de uso con diagramas Mermaid, guardarrailes de escritura y generacion de `AGENTS.md.patch.md`. | `specs/010_integracion_documentador_spec.md` | Verificado |
+| [UC-claude_integration](./UC-claude_integration.md) | Integracion Multi-Agente | Aprovisionamiento idempotente en `.claude/` (`install.sh`/`uninstall.sh`), selector `--format claude`, normalizacion de herramientas y contrato de salida para Claude Code y Claude Desktop. | `specs/012_soporte_claude_spec.md` | Verificado |
 
 ## Mapa de Relaciones por Dominio
 
@@ -36,5 +37,6 @@ flowchart LR
         UC001["UC-telemetry_action_logging (Spec 001)"] --> UC004["UC-telemetry_antigravity_interception (Spec 004)"]
         UC004 --> UC008["UC-session_role_management (Spec 008)"]
         UC008 --> UC010
+        UC004 --> UC012["UC-claude_integration (Spec 012)"]
     end
 ```
