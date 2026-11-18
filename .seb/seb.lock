@@ -72,6 +72,10 @@
       "verified": true,
       "commit_hash": "2df382c"
     },
+    "013_identificadores_unicos_requisitos": {
+      "spec_hash": "d3961d2a4cb883e438ffec80409f990965d091e62798af7fd191c0fd24a5f263",
+      "verifier_hash": "df60a07f3826a6516635b39df705d5586c5c870140d563521b96d407c97a2541"
+    },
     "014_afecta_uc_multiple": {
       "spec_hash": "ce8ed80e3546d13121d8d104a2de9e548200a0369167d1358deb38c5bfb84687",
       "verifier_hash": "ec603cc2daa98a428863fd7926e0677c25518504798cbdf7de9ae75d94e6d85f",
