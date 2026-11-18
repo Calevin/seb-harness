@@ -1,86 +1,88 @@
 {
   "tasks": {
     "001_registro_telemetria_acciones": {
-      "spec_hash": "0fd2a863bf58eb83598a32234d6b59b5496f62e569df5f741ef485d444b02810",
-      "verifier_hash": "fadeb6daf637879ef4c6a3d6f954e63afc63004455621b26583a9246b8e2d2ec",
+      "spec_hash": "1e529e988a12d965a0d26d74124a5f728bd971c8db47a76d35548e4fa83f0d50",
+      "verifier_hash": "422806729e1fc25e48c6021b4d83114dc554e9e13851556574a636adbd11b252",
       "verified": true,
-      "commit_hash": "160c7b9"
+      "commit_hash": "cacb83e"
     },
     "002_prefijo_secuencial_artefactos": {
-      "spec_hash": "7a4e3aab125817da9c36fd3c7a772a45771cd5a41311a48eb4dc53da2403920c",
-      "verifier_hash": "bcd42665b31c8b3f1f4287532663b329f38a33fde6d39539c69a83234c481fad",
+      "spec_hash": "64314db274c0739e01f59f2d59e8b3c78416780690435d6d63d893dd9dc45b73",
+      "verifier_hash": "9bc24a06c2966b3e2a5dd784fa861bd16b68a10c8019c11b05205c92adbd8fd1",
       "verified": true,
-      "commit_hash": "bd5b30b"
+      "commit_hash": "cacb83e"
     },
     "003_desinstalacion_arnes": {
-      "spec_hash": "4aa3bf94b15f15d12f2a06631012d37028d6b0b730e6e08ed5476298ed3541ca",
-      "verifier_hash": "dd49a1deef52417512b6676ac60137b05c303a00935a7a463cf4af5880a6a703",
+      "spec_hash": "5bfe261595e73eb2b69b15bfa3fa89b03b777bfd575df38e5f88fbd7ae37a2cc",
+      "verifier_hash": "e39c245dba6990b519e01f98dd263f5d2e9f5cc787bebea90525b17042236d70",
       "verified": true,
-      "commit_hash": "01a0024"
+      "commit_hash": "cacb83e"
     },
     "004_captura_telemetria_antigravity": {
-      "spec_hash": "79f1ead5bac1f652d8be8e42a1bc1c95985e4db989da353c87e0b6d6983dfb49",
-      "verifier_hash": "c75f7d6af09f843d4b64b00f57a570662d9a4189b2c95389889e655bf98022b3",
+      "spec_hash": "f28f8583b5f9fdf316fc5f1d3de7fe8c7c9b80d4da5d380c6d48fdfa9a98bf4f",
+      "verifier_hash": "391a6e563d6df05fcc8dfde4bf8cd462b7ea332da48d2596749b09c1d6021f53",
       "verified": true,
-      "commit_hash": "e6e89f9"
+      "commit_hash": "cacb83e"
     },
     "005_gestion_grafo_dependencias": {
-      "spec_hash": "a303d50136310be721ea3bcf066ed036822aca7d79fb41bff50c3575f0ae09d3",
-      "verifier_hash": "fd7529072458a281fe44f2cfb07901deb74ef176d177045f6593c7dc9494b826",
+      "spec_hash": "6c4c93c21bf784b629ca626c46913ebffde1b116e6b4054c158479a97983604a",
+      "verifier_hash": "d80098545987f711fd757aea58d34740d9227d9dd60ce9f3e93ab2ff574997a8",
       "verified": true,
-      "commit_hash": "e6e89f9"
+      "commit_hash": "cacb83e"
     },
     "006_parser_tabla_verificacion": {
-      "spec_hash": "bfdc68e2fdf0336c57ff875cbe9695082f67694d9d0fa6e0557cb4da84c3a569",
-      "verifier_hash": "28f4841fe93d09f5e41cb950373e2df683b47dfa47a43baff8a6a127fa4a0ee5",
+      "spec_hash": "d2d2780310d60e8de53709d3f6f93eaebeb23409d9f451db3267eeacb5ea16b9",
+      "verifier_hash": "21e0183763c7f8433dd4d232aca518ec2488a65b4c3a17d91369b49daf8ae421",
       "verified": true,
-      "commit_hash": "0528c64"
+      "commit_hash": "cacb83e"
     },
     "007_migracion_contexto_brownfield": {
-      "spec_hash": "88517a37b2d89eaa421c17301e58f3f716316b9e6dd6742858b13cd89623b61d",
-      "verifier_hash": "7a313e09f740f210cc3ee37eb33cada34953ef73e3c2589a6528bf034e782372",
+      "spec_hash": "ce392ee48f195c912f7d53028498b947c9d96a92cc4280ebd06362596e7f928d",
+      "verifier_hash": "6584cee591c9de357a118683ee061a10dfcfc88c525d0e311e083e5b38cb7289",
       "verified": true,
-      "commit_hash": "1aa0080"
+      "commit_hash": "cacb83e"
     },
     "008_estado_sesion_determinista": {
-      "spec_hash": "050132327f7c4a5ede58b236a9a0bd4f2625bb212ad61b87db6b482943fbaa47",
-      "verifier_hash": "1044ca0a3c47b7f5935ddb090887230c3c3b41bee680ee5f237a3ff89cbebfea",
+      "spec_hash": "37da38a4caef707cd43eb3b61b9fd43b488b733a96134d43f0f0b899f37b6f88",
+      "verifier_hash": "380a6113a19e2312da72d9f604026e2907549a960a08c6d2a65b2f9bce37da06",
       "verified": true,
-      "commit_hash": "e93f70c"
+      "commit_hash": "cacb83e"
     },
     "009_aborto_tarea": {
-      "spec_hash": "4dad72b55a4bed3509bc24382f9ee98f38d0dd52d8b4fca131871c038a79f51b",
-      "verifier_hash": "eca393ca4f9d7a89ddf218e0c4a96db29b1681b6c6b4438b1fc18b7d81f7d89f",
+      "spec_hash": "c3d110c6a3ed65fb122d8ce8f67deb5f90ebe0f008fe6459c97e4debc107b3e6",
+      "verifier_hash": "e2304be242490d79c9d0689d29c0451936262fae6f2c5345f4adc9e03c933901",
       "verified": true,
-      "commit_hash": "438bf98"
+      "commit_hash": "cacb83e"
     },
     "010_integracion_documentador": {
-      "spec_hash": "4c54d1cb8b900e96ee2955a7f748d3f321f2ada4502f2f6f33f1057e224059e8",
-      "verifier_hash": "77cddbe24db8d51e5d22f19e8fb83c513cdfe3b6888e0ddcfa9f22ca634deaf2",
+      "spec_hash": "40f39b5e6042e08d81077da70c694aa78c0b7d2a427a6a8c6a0118b31b44048e",
+      "verifier_hash": "590ca6548e829d67b2ff52665dae0244153a04cb9db642d9b9deab337197c6ea",
       "verified": true,
-      "commit_hash": "fc38a2e"
+      "commit_hash": "cacb83e"
     },
     "011_gobernanza_afecta_uc": {
-      "spec_hash": "e26bd60609e85f4e62cf7c26e7e3a9dbaa82162a6e3757a1bd3c7c055ff76012",
-      "verifier_hash": "d1260ca4951fc5596265acdc32169fbe5c0456927be9e7d22b86c7a96a924b10",
+      "spec_hash": "825b1112450685449a0cfb9516b970055c649c4d935f747000a73517118ce8f1",
+      "verifier_hash": "a457feadac396ccedf3a3b9740f22e98e6c087bfdc9e0d595c951c921ee27cbd",
       "verified": true,
-      "commit_hash": "851cff2"
+      "commit_hash": "cacb83e"
     },
     "012_soporte_claude": {
-      "spec_hash": "7b185d039d22c8f3999708897f60ed150df877d1d7f2d024fb9213ec7f62a52c",
-      "verifier_hash": "55987ab84f98c27fbe3ec25eee5e73b2f1e6bafa542062ca3b032beae6aaf4da",
+      "spec_hash": "b576689134eb0aba83d4831dae32bf9c8910f8094e5aaadabd4b9f9e07d59558",
+      "verifier_hash": "f449d2c26637d17b92e8f3e8c5bf8da00002448c54824a5c7cedba630e33d39e",
       "verified": true,
-      "commit_hash": "2df382c"
+      "commit_hash": "cacb83e"
     },
     "013_identificadores_unicos_requisitos": {
       "spec_hash": "d3961d2a4cb883e438ffec80409f990965d091e62798af7fd191c0fd24a5f263",
-      "verifier_hash": "df60a07f3826a6516635b39df705d5586c5c870140d563521b96d407c97a2541"
+      "verifier_hash": "7a49ea0d76f6eee91d5f6cda95ba9d17e9fd91beee17875f906a6ccc7dd1d1b1",
+      "verified": true,
+      "commit_hash": "cacb83e"
     },
     "014_afecta_uc_multiple": {
-      "spec_hash": "ce8ed80e3546d13121d8d104a2de9e548200a0369167d1358deb38c5bfb84687",
-      "verifier_hash": "ec603cc2daa98a428863fd7926e0677c25518504798cbdf7de9ae75d94e6d85f",
+      "spec_hash": "01354445b1162f27732ad99a7a877bb35c16443367474b30810794ad80ce4bf5",
+      "verifier_hash": "47da50f07166bab295da606855afedaed656d36a93d3f815cc026df7b31fe7cd",
       "verified": true,
-      "commit_hash": "59856f8"
+      "commit_hash": "cacb83e"
     }
   }
 }

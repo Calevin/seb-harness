@@ -12,7 +12,7 @@ Los cambios se estructuran en tres frentes sincronizados:
 
 1. **Directiva y Plantilla de Especificación (`seb-especificador`):**
    - Actualizar `payload/.agents/skills/seb-especificador/SKILL.md` para incluir `docs/use-cases/README.md` en `Allowed Reads` y en la Fase 1 (*Context Alignment & Input Ingestion*), instruyendo al agente a consultar el catálogo existente antes de redactar la cabecera.
-   - Documentar explícitamente las reglas de asignación de `Afecta-UC:` con valor delimitado entre backticks: `` `UC-<dominio>_<accion>` `` (evolución de caso existente), `` `nuevo` `` (nuevo comportamiento funcional externo o catálogo inexistente con impacto externo) o `` `ninguno` `` (refactorizaciones internas / infraestructura sin impacto funcional externo), así como la división en specs independientes si una petición afecta a múltiples casos de uso (`CL-03`).
+   - Documentar explícitamente las reglas de asignación de `Afecta-UC:` con valor delimitado entre backticks: `` `UC-<dominio>_<accion>` `` (evolución de caso existente), `` `nuevo` `` (nuevo comportamiento funcional externo o catálogo inexistente con impacto externo) o `` `ninguno` `` (refactorizaciones internas / infraestructura sin impacto funcional externo), así como la división en specs independientes si una petición afecta a múltiples casos de uso (`011-CL-03`).
    - Actualizar `payload/.agents/skills/seb-especificador/template/nnn_nombre_tarea_spec.md` para incluir `- **Afecta-UC:**` en la cabecera con el formato entre backticks y sus tres opciones válidas.
 
 2. **Directiva de Auditoría y Bloqueo en Clarificación (`seb-clarificador`):**
@@ -27,9 +27,9 @@ Los cambios se estructuran en tres frentes sincronizados:
 
 | Archivo / Ruta | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica | Requisitos Cubiertos (`RF-XX`) |
 | :--- | :--- | :--- | :--- |
-| `payload/.agents/skills/seb-especificador/SKILL.md` | `MODIFICAR` | Consulta obligatoria de `docs/use-cases/README.md`, reglas de `Afecta-UC:` entre backticks y división de alcance multi-UC | `RF-01`, `RF-02`, `RF-04`, `RF-10`, `CL-03` |
-| `payload/.agents/skills/seb-especificador/template/nnn_nombre_tarea_spec.md` | `MODIFICAR` | Incorporar `- **Afecta-UC:**` con formato entre backticks y sus tres valores válidos en la cabecera de la plantilla | `RF-02`, `RF-03`, `RF-10` |
-| `payload/.agents/skills/seb-clarificador/SKILL.md` | `MODIFICAR` | Auditoría de presencia, backticks, existencia en `docs/use-cases/README.md`, coherencia con `RF-XX`, interrogación sin edición previa y bloqueo duro en Fase 5 | `RF-05`, `RF-06`, `RF-07`, `RF-08`, `RF-09`, `RF-10`, `CL-01`, `CL-02` |
+| `payload/.agents/skills/seb-especificador/SKILL.md` | `MODIFICAR` | Consulta obligatoria de `docs/use-cases/README.md`, reglas de `Afecta-UC:` entre backticks y división de alcance multi-UC | `011-RF-01`, `011-RF-02`, `011-RF-04`, `011-RF-10`, `011-CL-03` |
+| `payload/.agents/skills/seb-especificador/template/nnn_nombre_tarea_spec.md` | `MODIFICAR` | Incorporar `- **Afecta-UC:**` con formato entre backticks y sus tres valores válidos en la cabecera de la plantilla | `011-RF-02`, `011-RF-03`, `011-RF-10` |
+| `payload/.agents/skills/seb-clarificador/SKILL.md` | `MODIFICAR` | Auditoría de presencia, backticks, existencia en `docs/use-cases/README.md`, coherencia con `RF-XX`, interrogación sin edición previa y bloqueo duro en Fase 5 | `011-RF-05`, `011-RF-06`, `011-RF-07`, `011-RF-08`, `011-RF-09`, `011-RF-10`, `011-CL-01`, `011-CL-02` |
 | `engine/cmd/seb/afecta_uc_governance_test.go` | `CREAR` | Pruebas deterministas de directivas, plantilla, sincronización `payload/.agents` / `.agents` y compatibilidad hacia atrás (`001` a `010`) | `RF-01`..`RF-11`, `RNF-01`, `RNF-02`, `CL-01`..`CL-03` |
 
 ## 3. Contratos y Reglas a Incorporar
@@ -60,12 +60,12 @@ Los cambios se estructuran en tres frentes sincronizados:
 
 ## 5. Secuencia de Tareas Atómicas (TDD)
 
-- [ ] **T1. Actualizar directiva y plantilla de `seb-especificador`** (`RF-01`, `RF-02`, `RF-03`, `RF-04`, `RF-10`, `CL-03`)
+- [ ] **T1. Actualizar directiva y plantilla de `seb-especificador`** (`011-RF-01`, `011-RF-02`, `011-RF-03`, `011-RF-04`, `011-RF-10`, `011-CL-03`)
   - _Archivos:_ `payload/.agents/skills/seb-especificador/SKILL.md`, `payload/.agents/skills/seb-especificador/template/nnn_nombre_tarea_spec.md`
-  - _Hecho cuando:_ `CHK-01` de `specs/011_gobernanza_afecta_uc_verificador.md` devuelve exit code `0`.
-- [ ] **T2. Actualizar directiva de auditoría y bloqueo de `seb-clarificador`** (`RF-05`, `RF-06`, `RF-07`, `RF-08`, `RF-09`, `RF-10`, `CL-01`, `CL-02`)
+  - _Hecho cuando:_ `011-CHK-01` de `specs/011_gobernanza_afecta_uc_verificador.md` devuelve exit code `0`.
+- [ ] **T2. Actualizar directiva de auditoría y bloqueo de `seb-clarificador`** (`011-RF-05`, `011-RF-06`, `011-RF-07`, `011-RF-08`, `011-RF-09`, `011-RF-10`, `011-CL-01`, `011-CL-02`)
   - _Archivos:_ `payload/.agents/skills/seb-clarificador/SKILL.md`
-  - _Hecho cuando:_ `CHK-02` de `specs/011_gobernanza_afecta_uc_verificador.md` devuelve exit code `0`.
+  - _Hecho cuando:_ `011-CHK-02` de `specs/011_gobernanza_afecta_uc_verificador.md` devuelve exit code `0`.
 - [ ] **T3. Implementar suite de verificación de gobernanza y compatibilidad histórica (`001` a `010`)** (`RF-11`, `RNF-01`, `RNF-02`)
   - _Archivos:_ `engine/cmd/seb/afecta_uc_governance_test.go`
-  - _Hecho cuando:_ `CHK-03`, `CHK-98` y `CHK-99` de `specs/011_gobernanza_afecta_uc_verificador.md` devuelven exit code `0`.
+  - _Hecho cuando:_ `011-CHK-03`, `011-CHK-98` y `011-CHK-99` de `specs/011_gobernanza_afecta_uc_verificador.md` devuelven exit code `0`.

@@ -86,6 +86,7 @@ sequenceDiagram
    - Si `Afecta-UC:` declara una lista (elementos entre backticks separados por coma y espacio, sin orden significativo), actualizar cada caso de uso `UC-<dominio>_<accion>` declarado.
    - Si `Afecta-UC:` contiene `nuevo` (como valor simple o dentro de una lista), determinar a partir de los `RF-XX` la cantidad de casos de uso nuevos (uno o mas) y asignar a cada uno un identificador `UC-<dominio>_<accion>` inexistente en el catalogo.
 3. **Generacion del Artefacto:**
+   - Al citar requisitos, historias, casos limite o controles, usar el identificador prefijado `<NNN>-<TIPO>-<NN>` de la spec propietaria (ej. `013-RF-05`, nunca `RF-05` a secas), ya que un caso de uso consolida requisitos de varias specs.
    - Inspeccionar el codigo implementado para extraer nombres reales de comandos, DTOs y eventos (en ingles).
    - Redactar las explicaciones funcionales en espanol formal, sin emojis y con `autonumber` en Mermaid.
 4. **Actualizacion del Catalogo General:**

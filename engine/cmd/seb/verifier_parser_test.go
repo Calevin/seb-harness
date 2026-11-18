@@ -12,7 +12,9 @@ import (
 // CHK-01 (RF-01, RF-02, CL-01): Parseo de identificadores heterogeneos y normalizacion de listas con o sin espacios
 func TestParseVerifierHeterogeneousRequirements(t *testing.T) {
 	tmpDir := t.TempDir()
-	verifierPath := filepath.Join(tmpDir, "verificador_heterogeneo.md")
+	writeSpecStub(t, tmpDir, "006", "parser_tabla_verificacion")
+	writeSpecStub(t, tmpDir, "100", "sintetico")
+	verifierPath := filepath.Join(tmpDir, "006_heterogeneo_verificador.md")
 
 	// Incluye exactamente los casos reportados en produccion:
 	// CHK-09 con RNF-02 y backticks en la descripcion
@@ -23,11 +25,11 @@ func TestParseVerifierHeterogeneousRequirements(t *testing.T) {
 
 | Check ID | Requisito | Descripción de la Verificación | Comando Determinista |
 | :--- | :--- | :--- | :--- |
-| CHK-01 | RF-01 | Verificacion de autenticacion basica | ` + "`echo ok`" + ` |
-| CHK-09 | RNF-02 | Rutas de categorías montadas tras ` + "`requireAuth`" + ` y catálogo global sin filtro por usuario | ` + "`direnv exec . pnpm --filter server exec vitest run src/routes/category.routes.spec.ts`" + ` |
-| CHK-98 | RNF-01, RNF-02 | Análisis estático del cliente y compilación estricta de todos los paquetes | ` + "`direnv exec . pnpm --filter client lint && direnv exec . pnpm -r build`" + ` |
-| CHK-99 | GLOBAL | Build global, suite de backend completa con umbral de cobertura | ` + "`direnv exec . pnpm -r build && direnv exec . pnpm --filter server test`" + ` |
-| CHK-100 | RF-Stack | Analisis de linter oficial del proyecto | ` + "`go vet ./...`" + ` |
+| 006-CHK-01 | 006-RF-01 | Verificacion de autenticacion basica | ` + "`echo ok`" + ` |
+| 006-CHK-09 | 006-RNF-02 | Rutas de categorías montadas tras ` + "`requireAuth`" + ` y catálogo global sin filtro por usuario | ` + "`direnv exec . pnpm --filter server exec vitest run src/routes/category.routes.spec.ts`" + ` |
+| 006-CHK-98 | 006-RNF-01, 006-RNF-02 | Análisis estático del cliente y compilación estricta de todos los paquetes | ` + "`direnv exec . pnpm --filter client lint && direnv exec . pnpm -r build`" + ` |
+| 006-CHK-99 | GLOBAL | Build global, suite de backend completa con umbral de cobertura | ` + "`direnv exec . pnpm -r build && direnv exec . pnpm --filter server test`" + ` |
+| 006-CHK-100 | 006-RF-Stack | Analisis de linter oficial del proyecto | ` + "`go vet ./...`" + ` |
 `
 
 	if err := os.WriteFile(verifierPath, []byte(content), 0644); err != nil {
@@ -44,12 +46,12 @@ func TestParseVerifierHeterogeneousRequirements(t *testing.T) {
 	}
 
 	// Comprobar CHK-01
-	if items[0].ID != "CHK-01" || items[0].ReqID != "RF-01" {
+	if items[0].ID != "006-CHK-01" || items[0].ReqID != "006-RF-01" {
 		t.Errorf("CHK-01 incorrecto: got ID=%s, ReqID=%s", items[0].ID, items[0].ReqID)
 	}
 
 	// Comprobar CHK-09 (RNF-02 y backticks en descripcion)
-	if items[1].ID != "CHK-09" || items[1].ReqID != "RNF-02" {
+	if items[1].ID != "006-CHK-09" || items[1].ReqID != "006-RNF-02" {
 		t.Errorf("CHK-09 incorrecto: got ID=%s, ReqID=%s", items[1].ID, items[1].ReqID)
 	}
 	if !strings.Contains(items[1].Desc, "requireAuth") {
@@ -57,17 +59,17 @@ func TestParseVerifierHeterogeneousRequirements(t *testing.T) {
 	}
 
 	// Comprobar CHK-98 (normalizacion de espacios en lista de requisitos)
-	if items[2].ID != "CHK-98" || items[2].ReqID != "RNF-01,RNF-02" {
+	if items[2].ID != "006-CHK-98" || items[2].ReqID != "006-RNF-01,006-RNF-02" {
 		t.Errorf("CHK-98 normalizacion fallo: got ID=%s, ReqID=%s (esperado RNF-01,RNF-02)", items[2].ID, items[2].ReqID)
 	}
 
 	// Comprobar CHK-99 (GLOBAL)
-	if items[3].ID != "CHK-99" || items[3].ReqID != "GLOBAL" {
+	if items[3].ID != "006-CHK-99" || items[3].ReqID != "GLOBAL" {
 		t.Errorf("CHK-99 incorrecto: got ID=%s, ReqID=%s (esperado GLOBAL)", items[3].ID, items[3].ReqID)
 	}
 
 	// Comprobar CHK-100 (RF-Stack)
-	if items[4].ID != "CHK-100" || items[4].ReqID != "RF-Stack" {
+	if items[4].ID != "006-CHK-100" || items[4].ReqID != "006-RF-Stack" {
 		t.Errorf("CHK-100 incorrecto: got ID=%s, ReqID=%s", items[4].ID, items[4].ReqID)
 	}
 }
@@ -75,6 +77,8 @@ func TestParseVerifierHeterogeneousRequirements(t *testing.T) {
 // CHK-02 (RF-03, RF-05, CL-04, CL-05): Anti-Silent-Drop de filas candidatas malformadas y comandos sin backticks o vacios
 func TestParseVerifierMalformedCandidateRows(t *testing.T) {
 	tmpDir := t.TempDir()
+	writeSpecStub(t, tmpDir, "006", "parser_tabla_verificacion")
+	writeSpecStub(t, tmpDir, "100", "sintetico")
 
 	testCases := []struct {
 		name          string
@@ -85,7 +89,7 @@ func TestParseVerifierMalformedCandidateRows(t *testing.T) {
 			name: "Comando sin backticks",
 			content: `| Check ID | Requisito | Descripción | Comando |
 | :--- | :--- | :--- | :--- |
-| CHK-01 | RF-01 | Descripcion valida | exit 0 |
+| 006-CHK-01 | 006-RF-01 | Descripcion valida | exit 0 |
 `,
 			expectedError: "delimitadores de comando",
 		},
@@ -93,7 +97,7 @@ func TestParseVerifierMalformedCandidateRows(t *testing.T) {
 			name: "Comando vacio entre backticks",
 			content: `| Check ID | Requisito | Descripción | Comando |
 | :--- | :--- | :--- | :--- |
-| CHK-02 | RF-02 | Descripcion valida | ` + "``" + ` |
+| 006-CHK-02 | 006-RF-02 | Descripcion valida | ` + "``" + ` |
 `,
 			expectedError: "vacío",
 		},
@@ -101,7 +105,7 @@ func TestParseVerifierMalformedCandidateRows(t *testing.T) {
 			name: "Fila candidata con columnas faltantes (solo 3 columnas)",
 			content: `| Check ID | Requisito | Descripción | Comando |
 | :--- | :--- | :--- | :--- |
-| CHK-03 | RF-03 | ` + "`echo ok`" + ` |
+| 006-CHK-03 | 006-RF-03 | ` + "`echo ok`" + ` |
 `,
 			expectedError: "estructura de columnas",
 		},
@@ -109,7 +113,7 @@ func TestParseVerifierMalformedCandidateRows(t *testing.T) {
 			name: "Fila candidata sin pipe de cierre",
 			content: `| Check ID | Requisito | Descripción | Comando |
 | :--- | :--- | :--- | :--- |
-| CHK-04 | RF-04 | Descripcion | ` + "`echo ok`" + `
+| 006-CHK-04 | 006-RF-04 | Descripcion | ` + "`echo ok`" + `
 `,
 			expectedError: "delimitador",
 		},
@@ -117,7 +121,7 @@ func TestParseVerifierMalformedCandidateRows(t *testing.T) {
 			name: "Comillas invertidas no cerradas en el comando",
 			content: `| Check ID | Requisito | Descripción | Comando |
 | :--- | :--- | :--- | :--- |
-| CHK-05 | RF-05 | Descripcion | ` + "`echo ok |" + `
+| 006-CHK-05 | 006-RF-05 | Descripcion | ` + "`echo ok |" + `
 `,
 			expectedError: "comillas invertidas",
 		},
@@ -125,7 +129,7 @@ func TestParseVerifierMalformedCandidateRows(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			path := filepath.Join(tmpDir, strings.ReplaceAll(tc.name, " ", "_")+".md")
+			path := filepath.Join(tmpDir, "006_"+strings.ReplaceAll(tc.name, " ", "_")+"_verificador.md")
 			if err := os.WriteFile(path, []byte(tc.content), 0644); err != nil {
 				t.Fatalf("Error escribiendo archivo: %v", err)
 			}
@@ -144,15 +148,17 @@ func TestParseVerifierMalformedCandidateRows(t *testing.T) {
 // CHK-03 (RF-04, CL-02): Aislamiento de comandos de shell con pipes, operadores logicos y comillas entre backticks
 func TestParseVerifierCommandIsolationWithShellPipes(t *testing.T) {
 	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, "verificador_pipes.md")
+	writeSpecStub(t, tmpDir, "006", "parser_tabla_verificacion")
+	writeSpecStub(t, tmpDir, "100", "sintetico")
+	path := filepath.Join(tmpDir, "006_pipes_verificador.md")
 
 	content := `# Verificador con Pipes y Operadores de Shell
 
 | Check ID | Requisito | Descripción | Comando |
 | :--- | :--- | :--- | :--- |
-| CHK-01 | RF-01 | Pipeline con pipe tradicional | ` + "`cat report.txt | grep -E \"SUCCESS|PASS\" | wc -l`" + ` |
-| CHK-02 | RF-02 | Encadenamiento con OR logico | ` + "`direnv exec . pnpm test || exit 1`" + ` |
-| CHK-03 | RF-03 | Encadenamiento mixto con AND y subshell | ` + "`cd engine && CGO_ENABLED=0 go build -ldflags=\"-s -w\" -o ../.seb/bin/seb ./cmd/seb && go test -v ./...`" + ` |
+| 006-CHK-01 | 006-RF-01 | Pipeline con pipe tradicional | ` + "`cat report.txt | grep -E \"SUCCESS|PASS\" | wc -l`" + ` |
+| 006-CHK-02 | 006-RF-02 | Encadenamiento con OR logico | ` + "`direnv exec . pnpm test || exit 1`" + ` |
+| 006-CHK-03 | 006-RF-03 | Encadenamiento mixto con AND y subshell | ` + "`cd engine && CGO_ENABLED=0 go build -ldflags=\"-s -w\" -o ../.seb/bin/seb ./cmd/seb && go test -v ./...`" + ` |
 `
 
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -187,15 +193,17 @@ func TestParseVerifierCommandIsolationWithShellPipes(t *testing.T) {
 // CHK-04 (RF-06, CL-04): Deteccion y rechazo determinista de Check IDs duplicados
 func TestParseVerifierDuplicateCheckIDs(t *testing.T) {
 	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, "verificador_duplicados.md")
+	writeSpecStub(t, tmpDir, "006", "parser_tabla_verificacion")
+	writeSpecStub(t, tmpDir, "100", "sintetico")
+	path := filepath.Join(tmpDir, "006_duplicados_verificador.md")
 
 	content := `# Verificador con IDs Repetidos
 
 | Check ID | Requisito | Descripción | Comando |
 | :--- | :--- | :--- | :--- |
-| CHK-01 | RF-01 | Primer control con CHK-01 | ` + "`echo uno`" + ` |
-| CHK-02 | RF-02 | Control intermedio valido | ` + "`echo dos`" + ` |
-| CHK-01 | RF-03 | Segundo control con ID repetido | ` + "`echo tres`" + ` |
+| 006-CHK-01 | 006-RF-01 | Primer control con CHK-01 | ` + "`echo uno`" + ` |
+| 006-CHK-02 | 006-RF-02 | Control intermedio valido | ` + "`echo dos`" + ` |
+| 006-CHK-01 | 006-RF-03 | Segundo control con ID repetido | ` + "`echo tres`" + ` |
 `
 
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -216,7 +224,9 @@ func TestParseVerifierDuplicateCheckIDs(t *testing.T) {
 // CHK-05 (RF-07, CL-03): Inmunidad contextual a bloques de codigo cercados y lineas de tabla no candidatas
 func TestParseVerifierFencedCodeBlockImmunity(t *testing.T) {
 	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, "verificador_cercado.md")
+	writeSpecStub(t, tmpDir, "006", "parser_tabla_verificacion")
+	writeSpecStub(t, tmpDir, "100", "sintetico")
+	path := filepath.Join(tmpDir, "006_cercado_verificador.md")
 
 	content := `# Documentacion con Bloques Cercados
 
@@ -233,7 +243,7 @@ Tabla real ejecutable:
 
 | Check ID | Requisito | Descripción | Comando |
 | :--- | :--- | :--- | :--- |
-| CHK-01 | RF-01 | Check real unico fuera del bloque | ` + "`echo real`" + ` |
+| 006-CHK-01 | 006-RF-01 | Check real unico fuera del bloque | ` + "`echo real`" + ` |
 `
 
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
@@ -249,7 +259,7 @@ Tabla real ejecutable:
 		t.Fatalf("Se esperaba exactamente 1 item (el check real), pero se obtuvieron %d", len(items))
 	}
 
-	if items[0].ID != "CHK-01" {
+	if items[0].ID != "006-CHK-01" {
 		t.Errorf("Item extraido incorrecto: got %s, want CHK-01", items[0].ID)
 	}
 }
@@ -257,9 +267,11 @@ Tabla real ejecutable:
 // CHK-06 (RF-08, RF-10, CL-06): Integridad en plan-lock bloqueando verificadores defectuosos o sin controles ejecutables
 func TestParseVerifierPlanLockIntegrity(t *testing.T) {
 	tmpDir := t.TempDir()
+	writeSpecStub(t, tmpDir, "006", "parser_tabla_verificacion")
+	writeSpecStub(t, tmpDir, "100", "sintetico")
 
 	// 1. Archivo sin filas de control ejecutables (solo texto o encabezados)
-	emptyVerifier := filepath.Join(tmpDir, "sin_controles_verificador.md")
+	emptyVerifier := filepath.Join(tmpDir, "006_sin_controles_verificador.md")
 	contentEmpty := `# Verificador Vacio
 | Check ID | Requisito | Descripción | Comando |
 | :--- | :--- | :--- | :--- |
@@ -274,11 +286,11 @@ func TestParseVerifierPlanLockIntegrity(t *testing.T) {
 	}
 
 	// 2. Archivo con error de sintaxis que debe ser reportado
-	syntaxErrorVerifier := filepath.Join(tmpDir, "sintaxis_error_verificador.md")
+	syntaxErrorVerifier := filepath.Join(tmpDir, "006_sintaxis_error_verificador.md")
 	contentSyntax := `# Verificador
 | Check ID | Requisito | Descripción | Comando |
 | :--- | :--- | :--- | :--- |
-| CHK-01 | RF-01 | Fila malformada | exit 0 |
+| 006-CHK-01 | 006-RF-01 | Fila malformada | exit 0 |
 `
 	if err := os.WriteFile(syntaxErrorVerifier, []byte(contentSyntax), 0644); err != nil {
 		t.Fatalf("Error creando archivo: %v", err)
@@ -293,15 +305,17 @@ func TestParseVerifierPlanLockIntegrity(t *testing.T) {
 // CHK-07 (RF-09): Integridad en verify reportando total exacto de controles y exigiendo 100% en PASA
 func TestParseVerifierVerifyIntegrity(t *testing.T) {
 	tmpDir := t.TempDir()
-	path := filepath.Join(tmpDir, "verificador_conteo.md")
+	writeSpecStub(t, tmpDir, "006", "parser_tabla_verificacion")
+	writeSpecStub(t, tmpDir, "100", "sintetico")
+	path := filepath.Join(tmpDir, "006_conteo_verificador.md")
 
 	content := `# Verificador para Conteo
 | Check ID | Requisito | Descripción | Comando |
 | :--- | :--- | :--- | :--- |
-| CHK-01 | RF-01 | Primer control | ` + "`echo ok1`" + ` |
-| CHK-02 | RF-02 | Segundo control | ` + "`echo ok2`" + ` |
-| CHK-03 | RNF-01 | Tercer control | ` + "`echo ok3`" + ` |
-| CHK-04 | GLOBAL | Cuarto control | ` + "`echo ok4`" + ` |
+| 006-CHK-01 | 006-RF-01 | Primer control | ` + "`echo ok1`" + ` |
+| 006-CHK-02 | 006-RF-02 | Segundo control | ` + "`echo ok2`" + ` |
+| 006-CHK-03 | 006-RNF-01 | Tercer control | ` + "`echo ok3`" + ` |
+| 006-CHK-04 | GLOBAL | Cuarto control | ` + "`echo ok4`" + ` |
 `
 	if err := os.WriteFile(path, []byte(content), 0644); err != nil {
 		t.Fatalf("Error creando archivo: %v", err)
@@ -355,6 +369,8 @@ func TestParseVerifierNonFunctionalAndCompatibility(t *testing.T) {
 
 	// 2. Benchmark sintetico de rendimiento para 100 controles
 	tmpDir := t.TempDir()
+	writeSpecStub(t, tmpDir, "006", "parser_tabla_verificacion")
+	writeSpecStub(t, tmpDir, "100", "sintetico")
 	largeVerifierPath := filepath.Join(tmpDir, "100_checks_verificador.md")
 
 	var b strings.Builder
@@ -362,7 +378,7 @@ func TestParseVerifierNonFunctionalAndCompatibility(t *testing.T) {
 	b.WriteString("| Check ID | Requisito | Descripción | Comando |\n")
 	b.WriteString("| :--- | :--- | :--- | :--- |\n")
 	for i := 1; i <= 100; i++ {
-		b.WriteString(fmt.Sprintf("| CHK-%03d | RF-%02d, RNF-%02d | Control sintetico numero %d | `echo ok%d` |\n", i, i%10, i%5, i, i))
+		b.WriteString(fmt.Sprintf("| 100-CHK-%03d | 100-RF-%02d, 100-RNF-%02d | Control sintetico numero %d | `echo ok%d` |\n", i, i%10, i%5, i, i))
 	}
 
 	if err := os.WriteFile(largeVerifierPath, []byte(b.String()), 0644); err != nil {

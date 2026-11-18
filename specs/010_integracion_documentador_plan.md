@@ -27,17 +27,17 @@ La integración del skill `seb-documentador` como la Fase 6 del arnés abarca tr
 
 | Archivo / Ruta | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica | Requisitos Cubiertos (`RF-XX`) |
 | :--- | :--- | :--- | :--- |
-| `engine/cmd/seb/main.go` | `MODIFICAR` | Agregar `seb-documentador` a roles canónicos, soporte en `ensureDirectories` y regla de menor privilegio en `checkPermission` | `RF-01`, `RF-02`, `RF-03`, `RNF-01`, `CL-01` |
-| `engine/cmd/seb/documentador_guard_test.go` | `CREAR` | Pruebas unitarias de guardarraíl de permisos y gestión de roles para `seb-documentador` | `RF-02`, `RF-03`, `RNF-01` |
-| `payload/.agents/skills/seb-documentador/SKILL.md` | `CREAR` | Especificación de la habilidad, heurísticas Mermaid, plantilla de caso de uso y reglas de idioma | `RF-04`, `RF-05`, `RF-06`, `RF-07`, `RF-08`, `RF-13`, `RNF-02`, `CL-02`, `CL-04` |
-| `.agents/skills/seb-documentador/SKILL.md` | `CREAR` | Enlace o copia de dogfooding del skill documentador en el propio arnés | `RF-04`, `RF-05`, `RF-06` |
-| `payload/AGENTS.md` | `MODIFICAR` | Incorporar la Fase 6 y la fila de `seb-documentador` en la tabla de menor privilegio de la plantilla | `RF-01`, `RF-02`, `RF-03` |
-| `AGENTS.md` | `MODIFICAR` | Actualizar el protocolo operativo del arnés raíz con la Fase 6 | `RF-01`, `RF-02`, `RF-03` |
-| `payload/.agents/rules/00-seb-harness.md` | `MODIFICAR` | Documentar la Fase 6 y guardarraíles deterministas en las reglas globales distribuidas | `RF-01`, `RF-02`, `RF-03` |
-| `install.sh` | `MODIFICAR` | Creación de `docs/use-cases/`, copia del skill y generación asistida de `AGENTS.md.patch.md` en actualizaciones | `RF-09`, `RF-10`, `RF-11`, `RNF-03`, `CL-01`, `CL-03` |
-| `uninstall.sh` | `MODIFICAR` | Asegurar la preservación de `docs/use-cases/` ante desinstalaciones estándar | `RF-12` |
-| `engine/cmd/seb/installer_documentador_test.go` | `CREAR` | Pruebas automatizadas de aprovisionamiento, actualización idempotente y generación de parches | `RF-09`, `RF-10`, `RF-11`, `RF-12`, `RNF-03`, `CL-03` |
-| `engine/cmd/seb/skill_definition_test.go` | `CREAR` | Pruebas de verificación de estructura, ausencia de emojis y reglas de idioma del skill | `RF-04`, `RF-05`, `RF-06`, `RF-07`, `RF-08`, `RF-13` |
+| `engine/cmd/seb/main.go` | `MODIFICAR` | Agregar `seb-documentador` a roles canónicos, soporte en `ensureDirectories` y regla de menor privilegio en `checkPermission` | `010-RF-01`, `010-RF-02`, `010-RF-03`, `010-RNF-01`, `010-CL-01` |
+| `engine/cmd/seb/documentador_guard_test.go` | `CREAR` | Pruebas unitarias de guardarraíl de permisos y gestión de roles para `seb-documentador` | `010-RF-02`, `010-RF-03`, `010-RNF-01` |
+| `payload/.agents/skills/seb-documentador/SKILL.md` | `CREAR` | Especificación de la habilidad, heurísticas Mermaid, plantilla de caso de uso y reglas de idioma | `010-RF-04`, `010-RF-05`, `010-RF-06`, `010-RF-07`, `010-RF-08`, `010-RF-13`, `010-RNF-02`, `010-CL-02`, `010-CL-04` |
+| `.agents/skills/seb-documentador/SKILL.md` | `CREAR` | Enlace o copia de dogfooding del skill documentador en el propio arnés | `010-RF-04`, `010-RF-05`, `010-RF-06` |
+| `payload/AGENTS.md` | `MODIFICAR` | Incorporar la Fase 6 y la fila de `seb-documentador` en la tabla de menor privilegio de la plantilla | `010-RF-01`, `010-RF-02`, `010-RF-03` |
+| `AGENTS.md` | `MODIFICAR` | Actualizar el protocolo operativo del arnés raíz con la Fase 6 | `010-RF-01`, `010-RF-02`, `010-RF-03` |
+| `payload/.agents/rules/00-seb-harness.md` | `MODIFICAR` | Documentar la Fase 6 y guardarraíles deterministas en las reglas globales distribuidas | `010-RF-01`, `010-RF-02`, `010-RF-03` |
+| `install.sh` | `MODIFICAR` | Creación de `docs/use-cases/`, copia del skill y generación asistida de `AGENTS.md.patch.md` en actualizaciones | `010-RF-09`, `010-RF-10`, `010-RF-11`, `010-RNF-03`, `010-CL-01`, `010-CL-03` |
+| `uninstall.sh` | `MODIFICAR` | Asegurar la preservación de `docs/use-cases/` ante desinstalaciones estándar | `010-RF-12` |
+| `engine/cmd/seb/installer_documentador_test.go` | `CREAR` | Pruebas automatizadas de aprovisionamiento, actualización idempotente y generación de parches | `010-RF-09`, `010-RF-10`, `010-RF-11`, `010-RF-12`, `010-RNF-03`, `010-CL-03` |
+| `engine/cmd/seb/skill_definition_test.go` | `CREAR` | Pruebas de verificación de estructura, ausencia de emojis y reglas de idioma del skill | `010-RF-04`, `010-RF-05`, `010-RF-06`, `010-RF-07`, `010-RF-08`, `010-RF-13` |
 
 ## 3. Contratos, Firmas y Modelo de Datos
 
@@ -88,15 +88,15 @@ fi
 
 ## 5. Secuencia de Tareas Atómicas (TDD)
 
-- [x] **T1. Guardarraíl de menor privilegio y registro de roles para `seb-documentador` (`TestDocumentadorGuardAndRoles`)** (`RF-01`, `RF-02`, `RF-03`, `RNF-01`, `CL-01`)
+- [x] **T1. Guardarraíl de menor privilegio y registro de roles para `seb-documentador` (`TestDocumentadorGuardAndRoles`)** (`010-RF-01`, `010-RF-02`, `010-RF-03`, `010-RNF-01`, `010-CL-01`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/documentador_guard_test.go`
-  - _Hecho cuando:_ El comando `CHK-01` de `specs/010_integracion_documentador_verificador.md` devuelve exit code `0`.
-- [x] **T2. Aprovisionamiento, actualización idempotente y parche asistido en scripts (`TestInstallDocumentadorSkillAndPatch`)** (`RF-09`, `RF-10`, `RF-11`, `RF-12`, `RNF-03`, `CL-01`, `CL-03`)
+  - _Hecho cuando:_ El comando `010-CHK-01` de `specs/010_integracion_documentador_verificador.md` devuelve exit code `0`.
+- [x] **T2. Aprovisionamiento, actualización idempotente y parche asistido en scripts (`TestInstallDocumentadorSkillAndPatch`)** (`010-RF-09`, `010-RF-10`, `010-RF-11`, `010-RF-12`, `010-RNF-03`, `010-CL-01`, `010-CL-03`)
   - _Archivos:_ `install.sh`, `uninstall.sh`, `engine/cmd/seb/installer_documentador_test.go`
-  - _Hecho cuando:_ El comando `CHK-02` de `specs/010_integracion_documentador_verificador.md` devuelve exit code `0`.
-- [x] **T3. Creación de la definición del skill `seb-documentador` y reglas operativas (`TestDocumentadorSkillDefinitionAndRules`)** (`RF-04`, `RF-05`, `RF-06`, `RF-07`, `RF-08`, `RF-13`, `RNF-02`, `CL-02`, `CL-04`)
+  - _Hecho cuando:_ El comando `010-CHK-02` de `specs/010_integracion_documentador_verificador.md` devuelve exit code `0`.
+- [x] **T3. Creación de la definición del skill `seb-documentador` y reglas operativas (`TestDocumentadorSkillDefinitionAndRules`)** (`010-RF-04`, `010-RF-05`, `010-RF-06`, `010-RF-07`, `010-RF-08`, `010-RF-13`, `010-RNF-02`, `010-CL-02`, `010-CL-04`)
   - _Archivos:_ `payload/.agents/skills/seb-documentador/SKILL.md`, `.agents/skills/seb-documentador/SKILL.md`, `payload/AGENTS.md`, `AGENTS.md`, `payload/.agents/rules/00-seb-harness.md`, `engine/cmd/seb/skill_definition_test.go`
-  - _Hecho cuando:_ El comando `CHK-03` de `specs/010_integracion_documentador_verificador.md` devuelve exit code `0`.
-- [x] **T4. Verificación global del arnés (linter oficial y suite completa sin regresiones)** (`RNF-01`, `RNF-03`, `GLOBAL`)
+  - _Hecho cuando:_ El comando `010-CHK-03` de `specs/010_integracion_documentador_verificador.md` devuelve exit code `0`.
+- [x] **T4. Verificación global del arnés (linter oficial y suite completa sin regresiones)** (`010-RNF-01`, `010-RNF-03`, `GLOBAL`)
   - _Archivos:_ `engine/...`
-  - _Hecho cuando:_ Los comandos `CHK-98` y `CHK-99` de `specs/010_integracion_documentador_verificador.md` devuelven exit code `0`.
+  - _Hecho cuando:_ Los comandos `010-CHK-98` y `010-CHK-99` de `specs/010_integracion_documentador_verificador.md` devuelven exit code `0`.

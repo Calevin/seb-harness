@@ -64,8 +64,13 @@ _(Note: If more than 10 tasks are needed, suggest splitting the spec before proc
 
 Write `specs/<NNN>_<tarea>_verificador.md` in **Spanish**.
 **CRITICAL PARSER RULE:** The Go binary `.seb/bin/seb verify <nombre_tarea>` parses Markdown table rows matching the exact pattern:
-`| CHK-XX | RF-XX | Descripción | `comando ejecutable` |`
+`| <NNN>-CHK-XX | <NNN>-RF-XX | Descripción | `comando ejecutable` |`
 Every command MUST be non-interactive, deterministic, and return exit code `0` on success and non-zero on failure.
+
+**IDENTIFIER RULES (enforced by `seb plan-lock` and `seb verify`):**
+- Check IDs must start with the `<NNN>-CHK-` prefix of the source spec (e.g. `013-CHK-01`, `013-CHK-SMOKE`); legacy `CHK-XX` rows and foreign prefixes are rejected with exit code `1`.
+- In the `Requisito` column, reference each requirement with the prefixed identifier of the spec that owns it (`013-RF-05`, or `005-RF-03` for a cross-spec reference to an existing spec), or use `GLOBAL`.
+- In `plan.md`, cite requirements and checks with the same prefixed identifiers.
 
 ### Phase 5: Cryptographic Lock & Human Approval
 

@@ -17,9 +17,9 @@ El arnés cuenta con un subsistema de auditoría para supervisar la actividad de
 
 ## 3. Historias de Usuario
 
-- **HU-01:** Como desarrollador, quiero que cada comando del arnés y cada uso de herramienta registre su duración real en milisegundos para identificar cuellos de botella en el flujo de trabajo.
-- **HU-02:** Como desarrollador, quiero que el consumo de tokens de entrada y salida sea contabilizado fielmente por tarea para mantener visibilidad de los costos operativos del proyecto.
-- **HU-03:** Como desarrollador, quiero que los eventos automáticos del repositorio y del arnés queden asociados a la tarea activa sin requerir parámetros manuales redundantes.
+- **001-HU-01:** Como desarrollador, quiero que cada comando del arnés y cada uso de herramienta registre su duración real en milisegundos para identificar cuellos de botella en el flujo de trabajo.
+- **001-HU-02:** Como desarrollador, quiero que el consumo de tokens de entrada y salida sea contabilizado fielmente por tarea para mantener visibilidad de los costos operativos del proyecto.
+- **001-HU-03:** Como desarrollador, quiero que los eventos automáticos del repositorio y del arnés queden asociados a la tarea activa sin requerir parámetros manuales redundantes.
 
 ## 4. Definiciones de Dominio
 
@@ -33,29 +33,29 @@ El arnés cuenta con un subsistema de auditoría para supervisar la actividad de
 
 ## 5. Requisitos Funcionales (Criterios de Aceptación en EARS)
 
-- **RF-01 (Event-Driven):** CUANDO se ejecuta y finaliza una acción de herramienta o comando interno del arnés, EL SISTEMA DEBE calcular y registrar la duración de ejecución con una resolución mínima en milisegundos enteros.
-- **RF-02 (Event-Driven):** CUANDO un agente o proceso ejecutor suministra métricas de uso de modelo de lenguaje (ya sea por invocación atómica de herramienta o por ingesta de archivo estructurado `usage.jsonl`), EL SISTEMA DEBE registrar la cantidad exacta de tokens de entrada (`tokens_in`) y tokens de salida (`tokens_out`) asociados a la acción o turno.
-- **RF-03 (Event-Driven):** CUANDO se registran tokens consumidos y se proporciona un costo explícito en el evento, EL SISTEMA DEBE persistir dicho valor; SI no se proporciona costo explícito pero se identifican los tokens y el modelo, EL SISTEMA DEBE calcular el costo mediante la tabla de tarifas local (`.seb/config.json`); SI no existe tarifa configurada, EL SISTEMA DEBE persistir el costo como 0.0 en dólares estadounidenses.
-- **RF-04 (Event-Driven):** CUANDO se invoca un comando interno del arnés de forma autónoma, EL SISTEMA DEBE cronometrar su propia ejecución interna y persistir dicha duración como el tiempo de la acción.
-- **RF-05 (State-Driven):** MIENTRAS se registre cualquier acción o comando sin un identificador de tarea explícito, EL SISTEMA DEBE resolver la tarea activa siguiendo estrictamente la Cascada de Tarea Activa: 1) variable de entorno `SEB_TASK_ID`, 2) archivo de estado `.seb/ACTIVE_TASK`, 3) última tarea activa en la base de auditoría local, o 4) asignar la categoría `global`.
-- **RF-06 (Event-Driven):** CUANDO un agente genera un archivo estructurado `usage.jsonl` con métricas acumuladas (turnos, tokens de entrada y salida, resultado), EL SISTEMA DEBE proveer un mecanismo determinista para importar o sincronizar dichas métricas en la base de datos de auditoría vinculándolas a la tarea activa.
-- **RF-07 (Unwanted Behavior):** SI una medición de duración arroja un valor negativo o inconsistente por desfase de reloj, ENTONCES EL SISTEMA DEBE normalizar el valor a cero y registrar la acción sin interrumpir el flujo del usuario.
-- **RF-08 (Unwanted Behavior):** SI se registra una acción sin tarea activa existente en el entorno tras evaluar toda la cascada de resolución, ENTONCES EL SISTEMA DEBE asignar la categoría global a la acción en lugar de abortar la operación.
-- **RF-09 (Ubiquitous):** EL SISTEMA DEBE proveer un resumen consolidado de auditoría donde se totalicen de forma determinista la cantidad de acciones, la latencia total acumulada, los tokens de entrada, los tokens de salida y el costo total agrupados por tarea.
+- **001-RF-01 (Event-Driven):** CUANDO se ejecuta y finaliza una acción de herramienta o comando interno del arnés, EL SISTEMA DEBE calcular y registrar la duración de ejecución con una resolución mínima en milisegundos enteros.
+- **001-RF-02 (Event-Driven):** CUANDO un agente o proceso ejecutor suministra métricas de uso de modelo de lenguaje (ya sea por invocación atómica de herramienta o por ingesta de archivo estructurado `usage.jsonl`), EL SISTEMA DEBE registrar la cantidad exacta de tokens de entrada (`tokens_in`) y tokens de salida (`tokens_out`) asociados a la acción o turno.
+- **001-RF-03 (Event-Driven):** CUANDO se registran tokens consumidos y se proporciona un costo explícito en el evento, EL SISTEMA DEBE persistir dicho valor; SI no se proporciona costo explícito pero se identifican los tokens y el modelo, EL SISTEMA DEBE calcular el costo mediante la tabla de tarifas local (`.seb/config.json`); SI no existe tarifa configurada, EL SISTEMA DEBE persistir el costo como 0.0 en dólares estadounidenses.
+- **001-RF-04 (Event-Driven):** CUANDO se invoca un comando interno del arnés de forma autónoma, EL SISTEMA DEBE cronometrar su propia ejecución interna y persistir dicha duración como el tiempo de la acción.
+- **001-RF-05 (State-Driven):** MIENTRAS se registre cualquier acción o comando sin un identificador de tarea explícito, EL SISTEMA DEBE resolver la tarea activa siguiendo estrictamente la Cascada de Tarea Activa: 1) variable de entorno `SEB_TASK_ID`, 2) archivo de estado `.seb/ACTIVE_TASK`, 3) última tarea activa en la base de auditoría local, o 4) asignar la categoría `global`.
+- **001-RF-06 (Event-Driven):** CUANDO un agente genera un archivo estructurado `usage.jsonl` con métricas acumuladas (turnos, tokens de entrada y salida, resultado), EL SISTEMA DEBE proveer un mecanismo determinista para importar o sincronizar dichas métricas en la base de datos de auditoría vinculándolas a la tarea activa.
+- **001-RF-07 (Unwanted Behavior):** SI una medición de duración arroja un valor negativo o inconsistente por desfase de reloj, ENTONCES EL SISTEMA DEBE normalizar el valor a cero y registrar la acción sin interrumpir el flujo del usuario.
+- **001-RF-08 (Unwanted Behavior):** SI se registra una acción sin tarea activa existente en el entorno tras evaluar toda la cascada de resolución, ENTONCES EL SISTEMA DEBE asignar la categoría global a la acción en lugar de abortar la operación.
+- **001-RF-09 (Ubiquitous):** EL SISTEMA DEBE proveer un resumen consolidado de auditoría donde se totalicen de forma determinista la cantidad de acciones, la latencia total acumulada, los tokens de entrada, los tokens de salida y el costo total agrupados por tarea.
 
 ## 6. Requisitos No Funcionales (Verificables)
 
-- **RNF-01:** La persistencia y el cronometraje de cualquier acción individual deben completarse con una latencia añadida inferior a diez milisegundos.
-- **RNF-02:** El registro y cálculo de telemetría debe funcionar de forma autónoma y determinista sin requerir conectividad a servicios de red externos.
-- **RNF-03:** El sistema debe aceptar datos de tokens provistos bajo convenciones estándar alternativas (`input_tokens`/`output_tokens` y `prompt_tokens`/`completion_tokens`).
+- **001-RNF-01:** La persistencia y el cronometraje de cualquier acción individual deben completarse con una latencia añadida inferior a diez milisegundos.
+- **001-RNF-02:** El registro y cálculo de telemetría debe funcionar de forma autónoma y determinista sin requerir conectividad a servicios de red externos.
+- **001-RNF-03:** El sistema debe aceptar datos de tokens provistos bajo convenciones estándar alternativas (`input_tokens`/`output_tokens` y `prompt_tokens`/`completion_tokens`).
 
 ## 7. Casos Límite (Edge Cases)
 
-- **CL-01 (Acciones sub-milisegundo):** Acciones cuya ejecución tome menos de un milisegundo deben registrarse con duración cero milisegundos sin generar errores de redondeo.
-- **CL-02 (Operaciones sin consumo de modelo de lenguaje):** Acciones que no interactúan con modelos de lenguaje (como comandos de control de versiones o verificaciones estáticas) deben registrar cero en tokens y costo, garantizando la consistencia numérica de las sumatorias.
-- **CL-03 (Concurrencia de acciones):** La ejecución concurrente de múltiples herramientas en una misma sesión no debe cruzar ni corromper los temporizadores individuales de cada acción.
-- **CL-04 (Ausencia de archivo o tabla de precios):** Si el archivo `.seb/config.json` no existe o no contiene la tarifa del modelo reportado, el costo acumulado se registrará en 0.0 sin abortar el registro de la acción ni la contabilidad de tokens.
-- **CL-05 (Importación idempotente de `usage.jsonl`):** Si se solicita la sincronización de un archivo `usage.jsonl` más de una vez para la misma sesión o marca temporal, el sistema no debe duplicar las filas ni las sumatorias de tokens.
+- **001-CL-01 (Acciones sub-milisegundo):** Acciones cuya ejecución tome menos de un milisegundo deben registrarse con duración cero milisegundos sin generar errores de redondeo.
+- **001-CL-02 (Operaciones sin consumo de modelo de lenguaje):** Acciones que no interactúan con modelos de lenguaje (como comandos de control de versiones o verificaciones estáticas) deben registrar cero en tokens y costo, garantizando la consistencia numérica de las sumatorias.
+- **001-CL-03 (Concurrencia de acciones):** La ejecución concurrente de múltiples herramientas en una misma sesión no debe cruzar ni corromper los temporizadores individuales de cada acción.
+- **001-CL-04 (Ausencia de archivo o tabla de precios):** Si el archivo `.seb/config.json` no existe o no contiene la tarifa del modelo reportado, el costo acumulado se registrará en 0.0 sin abortar el registro de la acción ni la contabilidad de tokens.
+- **001-CL-05 (Importación idempotente de `usage.jsonl`):** Si se solicita la sincronización de un archivo `usage.jsonl` más de una vez para la misma sesión o marca temporal, el sistema no debe duplicar las filas ni las sumatorias de tokens.
 
 ## 8. Fuera de Alcance (Out of Scope)
 
@@ -64,7 +64,7 @@ El arnés cuenta con un subsistema de auditoría para supervisar la actividad de
 
 ## 9. Criterios de Finalización (Definition of Done)
 
-- Todos los requisitos (`RF-01` a `RF-09`) cuentan con verificación programática en `[PASA]` ejecutada mediante `.seb/bin/seb verify registro_telemetria_acciones`.
+- Todos los requisitos (`001-RF-01` a `001-RF-09`) cuentan con verificación programática en `[PASA]` ejecutada mediante `.seb/bin/seb verify registro_telemetria_acciones`.
 - Cero violaciones a `docs/constitution.md`.
 - Verificación de que las exportaciones de datos de auditoría contengan duraciones mayores a cero para comandos ejecutados y conteos válidos de tokens cuando sean provistos.
 

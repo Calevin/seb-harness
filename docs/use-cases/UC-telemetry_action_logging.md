@@ -1,6 +1,6 @@
 # UC-telemetry_action_logging: Registro de Telemetria, Duracion y Tokens de Acciones
 
-> **Trazabilidad SDD:** Derivado de la spec `specs/001_registro_telemetria_acciones_spec.md` (Requisitos: `RF-01`, `RF-02`, `RF-03`, `RF-04`, `RF-05`, `RF-06`, `RF-07`, `RF-08`, `RF-09`, `RNF-01`, `RNF-02`, `RNF-03`).
+> **Trazabilidad SDD:** Derivado de la spec `specs/001_registro_telemetria_acciones_spec.md` (Requisitos: `001-RF-01`, `001-RF-02`, `001-RF-03`, `001-RF-04`, `001-RF-05`, `001-RF-06`, `001-RF-07`, `001-RF-08`, `001-RF-09`, `001-RNF-01`, `001-RNF-02`, `001-RNF-03`).
 
 ## 1. Ficha de Intencion
 - **ID:** UC-telemetry_action_logging
@@ -59,9 +59,9 @@ flowchart TD
 ## 4. Caminos Alternativos y Catalogo de Errores
 | Error Code | Causa Raiz | Respuesta / Efecto |
 | :--- | :--- | :--- |
-| `NEGATIVE_DURATION_CLOCK_SKEW` | Medicion de tiempo arroja `duration_ms < 0` | Normalizacion silenciosa a `0` ms sin interrumpir la ejecucion (`RF-07`) |
-| `MISSING_PRICING_CONFIG` | Archivo `.seb/config.json` inexistente o modelo no listado en `pricing` | Registro de la accion con `cost_usd = 0.0` preservando conteo de tokens (`RF-03`, `CL-04`) |
-| `DUPLICATE_USAGE_RECORD` | Linea en `usage.jsonl` ya importada previamente con igual `task_id`, `turns` y `timestamp` | Omision idempotente del registro duplicado sin alterar sumatorias (`CL-05`) |
+| `NEGATIVE_DURATION_CLOCK_SKEW` | Medicion de tiempo arroja `duration_ms < 0` | Normalizacion silenciosa a `0` ms sin interrumpir la ejecucion (`001-RF-07`) |
+| `MISSING_PRICING_CONFIG` | Archivo `.seb/config.json` inexistente o modelo no listado en `pricing` | Registro de la accion con `cost_usd = 0.0` preservando conteo de tokens (`001-RF-03`, `001-CL-04`) |
+| `DUPLICATE_USAGE_RECORD` | Linea en `usage.jsonl` ya importada previamente con igual `task_id`, `turns` y `timestamp` | Omision idempotente del registro duplicado sin alterar sumatorias (`001-CL-05`) |
 | `USAGE_FILE_NOT_FOUND` | Ruta suministrada a `seb audit import-usage` no existe | Salida inmediata con `[seb-harness ERROR]` en `stderr` y `exit code 1` |
 | `UNKNOWN_AUDIT_SUBCOMMAND` | Subcomando distinto de `log`, `import-usage` o `report` | Mensaje de uso en `stderr` y `exit code 1` |
 

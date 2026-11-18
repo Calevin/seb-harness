@@ -20,11 +20,11 @@ Los scripts de hooks (`pre-tool.sh`, `post-tool.sh`, `git-post-commit`) se sincr
 
 | Archivo / Ruta | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica | Requisitos Cubiertos (`RF-XX`) |
 | :------------- | :----------------------------- | :---------------------- | :----------------------------- |
-| `engine/cmd/seb/main.go` | `MODIFICAR` | Incorporación de flags (`-model`), comando `import-usage`, cascada de tarea, cronometraje interno y cálculo de costos | `RF-01`, `RF-02`, `RF-03`, `RF-04`, `RF-05`, `RF-06`, `RF-07`, `RF-08`, `RF-09` |
-| `engine/cmd/seb/main_test.go` | `CREAR` | Suite de pruebas unitarias automatizadas para cada requisito funcional y casos límite | `RF-01`, `RF-02`, `RF-03`, `RF-04`, `RF-05`, `RF-06`, `RF-07`, `RF-08`, `RF-09` |
-| `.agents/hooks/pre-tool.sh` y `payload/.agents/hooks/pre-tool.sh` | `MODIFICAR` | Generación de temporizadores unívocos por identificador de llamada o sesión | `RF-01` |
-| `.agents/hooks/post-tool.sh` y `payload/.agents/hooks/post-tool.sh` | `MODIFICAR` | Extracción de tokens multi-formato (`input_tokens`/`prompt_tokens`), modelo y paso de métricas a `seb audit log` | `RF-01`, `RF-02`, `RF-03`, `RF-05` |
-| `.agents/hooks/git-post-commit` y `payload/.agents/hooks/git-post-commit` | `MODIFICAR` | Vinculación automática de commits a la tarea activa mediante cascada | `RF-05` |
+| `engine/cmd/seb/main.go` | `MODIFICAR` | Incorporación de flags (`-model`), comando `import-usage`, cascada de tarea, cronometraje interno y cálculo de costos | `001-RF-01`, `001-RF-02`, `001-RF-03`, `001-RF-04`, `001-RF-05`, `001-RF-06`, `001-RF-07`, `001-RF-08`, `001-RF-09` |
+| `engine/cmd/seb/main_test.go` | `CREAR` | Suite de pruebas unitarias automatizadas para cada requisito funcional y casos límite | `001-RF-01`, `001-RF-02`, `001-RF-03`, `001-RF-04`, `001-RF-05`, `001-RF-06`, `001-RF-07`, `001-RF-08`, `001-RF-09` |
+| `.agents/hooks/pre-tool.sh` y `payload/.agents/hooks/pre-tool.sh` | `MODIFICAR` | Generación de temporizadores unívocos por identificador de llamada o sesión | `001-RF-01` |
+| `.agents/hooks/post-tool.sh` y `payload/.agents/hooks/post-tool.sh` | `MODIFICAR` | Extracción de tokens multi-formato (`input_tokens`/`prompt_tokens`), modelo y paso de métricas a `seb audit log` | `001-RF-01`, `001-RF-02`, `001-RF-03`, `001-RF-05` |
+| `.agents/hooks/git-post-commit` y `payload/.agents/hooks/git-post-commit` | `MODIFICAR` | Vinculación automática de commits a la tarea activa mediante cascada | `001-RF-05` |
 
 ## 3. Contratos, Firmas y Modelo de Datos
 
@@ -85,30 +85,30 @@ func importUsageJsonl(db *sql.DB, taskID, filePath string) (int, error)
 
 _Regla para el Agente Implementador: Ejecuta UNA tarea a la vez en orden de dependencia. Primero escribe el test y verifica que falle (Rojo), luego escribe el código mínimo hasta pasar (Verde)._
 
-- [ ] **T1. Implementar cascada estricta de tarea activa y fallback a global** (`RF-05`, `RF-08`)
+- [ ] **T1. Implementar cascada estricta de tarea activa y fallback a global** (`001-RF-05`, `001-RF-08`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/main_test.go`
-  - _Hecho cuando:_ Los comandos `CHK-05` y `CHK-08` de `registro_telemetria_acciones_verificador.md` devuelven exit code `0`.
+  - _Hecho cuando:_ Los comandos `001-CHK-05` y `001-CHK-08` de `registro_telemetria_acciones_verificador.md` devuelven exit code `0`.
 
-- [ ] **T2. Implementar cronometraje interno de comandos del arnés y normalización de latencias** (`RF-01`, `RF-04`, `RF-07`)
+- [ ] **T2. Implementar cronometraje interno de comandos del arnés y normalización de latencias** (`001-RF-01`, `001-RF-04`, `001-RF-07`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/main_test.go`
-  - _Hecho cuando:_ Los comandos `CHK-01`, `CHK-04` y `CHK-07` de `registro_telemetria_acciones_verificador.md` devuelven exit code `0`.
+  - _Hecho cuando:_ Los comandos `001-CHK-01`, `001-CHK-04` y `001-CHK-07` de `registro_telemetria_acciones_verificador.md` devuelven exit code `0`.
 
-- [ ] **T3. Implementar registro de tokens y cálculo de costo con tabla local y fallback** (`RF-02`, `RF-03`)
+- [ ] **T3. Implementar registro de tokens y cálculo de costo con tabla local y fallback** (`001-RF-02`, `001-RF-03`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/main_test.go`
-  - _Hecho cuando:_ Los comandos `CHK-02` y `CHK-03` de `registro_telemetria_acciones_verificador.md` devuelven exit code `0`.
+  - _Hecho cuando:_ Los comandos `001-CHK-02` y `001-CHK-03` de `registro_telemetria_acciones_verificador.md` devuelven exit code `0`.
 
-- [ ] **T4. Implementar subcomando de importación determinista e idempotente de `usage.jsonl`** (`RF-06`, `CL-05`)
+- [ ] **T4. Implementar subcomando de importación determinista e idempotente de `usage.jsonl`** (`001-RF-06`, `001-CL-05`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/main_test.go`
-  - _Hecho cuando:_ El comando `CHK-06` de `registro_telemetria_acciones_verificador.md` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `001-CHK-06` de `registro_telemetria_acciones_verificador.md` devuelve exit code `0`.
 
-- [ ] **T5. Actualizar reporte consolidado de observabilidad con sumatorias verificadas** (`RF-09`)
+- [ ] **T5. Actualizar reporte consolidado de observabilidad con sumatorias verificadas** (`001-RF-09`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/main_test.go`
-  - _Hecho cuando:_ El comando `CHK-09` de `registro_telemetria_acciones_verificador.md` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `001-CHK-09` de `registro_telemetria_acciones_verificador.md` devuelve exit code `0`.
 
-- [ ] **T6. Sincronizar scripts de hooks (`pre-tool.sh`, `post-tool.sh`, `git-post-commit`) en `.agents/` y `payload/`** (`RF-01`, `RF-02`, `RF-05`)
+- [ ] **T6. Sincronizar scripts de hooks (`pre-tool.sh`, `post-tool.sh`, `git-post-commit`) en `.agents/` y `payload/`** (`001-RF-01`, `001-RF-02`, `001-RF-05`)
   - _Archivos:_ `payload/.agents/hooks/pre-tool.sh`, `payload/.agents/hooks/post-tool.sh`, `payload/.agents/hooks/git-post-commit`
   - _Hecho cuando:_ `git diff` entre `.agents/hooks` y `payload/.agents/hooks` es limpio y pasan los linters de shell.
 
-- [ ] **T7. Compilación limpia y pase integral de la suite de verificación** (`RF-01` a `RF-09`)
+- [ ] **T7. Compilación limpia y pase integral de la suite de verificación** (`001-RF-01` a `001-RF-09`)
   - _Archivos:_ `.seb/bin/seb`
-  - _Hecho cuando:_ Los comandos `CHK-10` y `CHK-11` devuelven exit code `0`, y `.seb/bin/seb verify registro_telemetria_acciones` concluye con 100% de controles en `[PASA]`.
+  - _Hecho cuando:_ Los comandos `001-CHK-10` y `001-CHK-11` devuelven exit code `0`, y `.seb/bin/seb verify registro_telemetria_acciones` concluye con 100% de controles en `[PASA]`.

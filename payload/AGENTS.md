@@ -32,6 +32,7 @@ Tienes terminantemente prohibido violar los permisos de tu rol activo:
 | **Implementador** | Todo el repositorio | Código fuente, tests, `MEMORY.md` (**PROHIBIDO** editar `constitution.md`, `*_spec.md` o `*_verificador.md`) | Tests, linters, compiladores locales |
 | `seb-verificador` | `specs/*`, resultados de verificación | `MEMORY.md` (solo si detecta limitaciones de entorno) | `.seb/bin/seb verify <tarea>` |
 | `seb-documentador` | `docs/constitution.md`, `specs/*`, código fuente, tests (solo lectura) | `docs/use-cases/*.md`, `docs/use-cases/README.md`, `MEMORY.md` | Inspección pasiva (`git diff`, etc.) |
+| `migrador` (one-off, solo humano) | Todo el repositorio | `specs/*_spec.md`, `specs/*_plan.md`, `specs/*_verificador.md`, `docs/use-cases/*`, `MEMORY.md`, `.seb/seb.lock` | `.seb/bin/seb oneoff <id_spec>` |
 
 *Nota de integridad*: Durante la implementación está estrictamente prohibido modificar, comentar o debilitar assertions en `specs/<NNN>_<tarea>_verificador.md` o en tests existentes para forzar un resultado exitoso (*reward-hacking*). Si un test o requisito es inviable técnicamente, detén la implementación, documéntalo en `MEMORY.md` y solicita volver a `seb-clarificador` o `seb-planificador`.
 
@@ -41,7 +42,18 @@ Delega las operaciones de control, numeración, verificación y telemetría en e
 - `.seb/bin/seb verify <nombre_tarea>`: Ejecuta de forma aislada y determinista todos los checks definidos en `specs/<NNN>_<nombre_tarea>_verificador.md` y registra el resultado en `.seb/seb-audit.db`.
 - `.seb/bin/seb memory-add "<categoría>" "<descripción>"`: Añade una entrada estructurada en `MEMORY.md` y la vincula a la tarea activa en SQLite.
 - `.seb/bin/seb audit report`: Muestra el consumo de tiempo (latencia), herramientas usadas, tokens y costo acumulado por tarea.
+- `.seb/bin/seb oneoff [<id_spec>] [--dry-run]`: Lista o ejecuta operaciones one-off de actualización del arnés (solo rol `migrador`, activado por el humano).
 
 ## 5. Eficiencia de Contexto y Tokens
 - Sé quirúrgico al explorar el repositorio: usa búsquedas dirigidas (`grep`/`ripgrep`, listado de directorios) en lugar de volcar archivos completos irrelevantes en el contexto.
 - Si encuentras una restricción de arquitectura, librería incompatible o fallo de entorno que no dependa del código de la tarea, regístralo inmediatamente en `MEMORY.md` para evitar que futuras sesiones repitan la misma investigación.
+
+## 6. Identificadores Únicos de Requisitos (`<NNN>-<TIPO>-<NN>`)
+- Todo elemento asociado a una spec (`HU`, `RF`, `RNF`, `CL`, `CHK`) usa el identificador prefijado `<NNN>-<TIPO>-<NN>`, donde `<NNN>` es el ID de la spec propietaria (ej. `013-RF-05`, `013-CHK-01`). El formato sin prefijo (`RF-05`) es heredado y `seb verify` / `seb plan-lock` lo rechazan en los verificadores.
+- Toda referencia a un requisito fuera de su propia spec (comentarios de código, tests, `MEMORY.md`, mensajes de commit, casos de uso) debe usar el identificador prefijado, escrito solo en texto (comentarios y documentos), nunca como parte de identificadores de código (nombres de funciones, tests o variables).
+
+## 7. Operaciones One-Off de Actualización del Arnés
+- Las Operaciones One-Off son excepcionales: se usan solo cuando una actualización de `seb-harness` exige modificar artefactos ya sellados (por ejemplo, la migración de identificadores de la Spec 013).
+- Están identificadas por el ID de la spec que las define y se ejecutan con `.seb/bin/seb oneoff <id_spec> [--dry-run]`; `.seb/bin/seb oneoff` sin ID solo lista las disponibles y si aplican al proyecto.
+- Solo pueden ejecutarse con el rol `migrador` activado por el humano desde su terminal (`.seb/bin/seb role set migrador`, y `.seb/bin/seb role clear` al terminar). Ningún agente puede activar ese rol ni ejecutar una one-off: el hook `PreToolUse` lo deniega.
+- Son la única excepción autorizada a la inmutabilidad de `specs/*_spec.md` y `specs/*_verificador.md` sellados: reescriben y vuelven a sellar sus hashes en `.seb/seb.lock` dejando rastro auditado en `.seb/seb-audit.db`.

@@ -19,10 +19,10 @@ El objetivo de esta tarea es dotar a `seb-harness` de un mecanismo determinista 
 
 ## 3. Historias de Usuario
 
-- **HU-01:** Como desarrollador que adopta `seb-harness` en un proyecto con instrucciones previas de IA (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`), quiero que el instalador respalde automáticamente los archivos ajenos al arnés antes de desplegar sus plantillas, para asegurar que no se pierdan directivas previas.
-- **HU-02:** Como agente iniciador de constitución, quiero inspeccionar automáticamente las fuentes de contexto heredadas y los archivos respaldados para incorporar las reglas de dominio, arquitectura y comandos en `docs/constitution.md`.
-- **HU-03:** Como desarrollador, quiero que al finalizar la inicialización, los archivos de contexto de asistentes queden configurados como stubs de redirección a `docs/constitution.md` y `AGENTS.md`, previniendo la divergencia de directivas.
-- **HU-04:** Como desarrollador, quiero que al desinstalar el arnés mediante `uninstall.sh`, cualquier archivo que haya sido respaldado con `.pre-seb.` sea restaurado a su nombre original.
+- **007-HU-01:** Como desarrollador que adopta `seb-harness` en un proyecto con instrucciones previas de IA (`AGENTS.md`, `GEMINI.md`, `CLAUDE.md`), quiero que el instalador respalde automáticamente los archivos ajenos al arnés antes de desplegar sus plantillas, para asegurar que no se pierdan directivas previas.
+- **007-HU-02:** Como agente iniciador de constitución, quiero inspeccionar automáticamente las fuentes de contexto heredadas y los archivos respaldados para incorporar las reglas de dominio, arquitectura y comandos en `docs/constitution.md`.
+- **007-HU-03:** Como desarrollador, quiero que al finalizar la inicialización, los archivos de contexto de asistentes queden configurados como stubs de redirección a `docs/constitution.md` y `AGENTS.md`, previniendo la divergencia de directivas.
+- **007-HU-04:** Como desarrollador, quiero que al desinstalar el arnés mediante `uninstall.sh`, cualquier archivo que haya sido respaldado con `.pre-seb.` sea restaurado a su nombre original.
 
 ## 4. Definiciones de Dominio
 
@@ -33,26 +33,26 @@ El objetivo de esta tarea es dotar a `seb-harness` de un mecanismo determinista 
 
 ## 5. Requisitos Funcionales (Criterios de Aceptación en EARS)
 
-- **RF-01 (Event-Driven):** CUANDO se ejecute el aprovisionamiento del arnés sobre un proyecto destino con un archivo `AGENTS.md` preexistente que no contenga la subcadena `seb-harness` (insensible a mayúsculas/minúsculas), EL SISTEMA DEBE respaldar dicho archivo bajo el nombre `AGENTS.pre-seb.md` antes de instalar el protocolo operativo oficial.
-- **RF-02 (Event-Driven):** CUANDO se ejecute el aprovisionamiento del arnés sobre un proyecto destino donde existan archivos de asistentes de IA ajenos (`GEMINI.md`, `CLAUDE.md`) que no contengan la subcadena `seb-harness` (insensible a mayúsculas/minúsculas), EL SISTEMA DEBE generar un respaldo para cada uno bajo la nomenclatura `<nombre>.pre-seb.<ext>`.
-- **RF-03 (State-Driven):** MIENTRAS se ejecute la fase de reconocimiento de `seb-iniciador`, EL SISTEMA DEBE incluir e inspeccionar obligatoriamente los archivos de contexto preexistentes (`AGENTS.md`, `AGENTS.pre-seb.md`, `GEMINI.md`, `GEMINI.pre-seb.md`, `CLAUDE.md`, `CLAUDE.pre-seb.md` y `docs/constitution.pre-seb.md` si están presentes) para extraer reglas de negocio, arquitectura y comandos de verificación.
-- **RF-04 (Event-Driven):** CUANDO se ejecute `seb-iniciador` en un proyecto donde ya exista `docs/constitution.md` sin la subcadena `seb-harness` (insensible a mayúsculas/minúsculas), EL SISTEMA DEBE respaldar el archivo original como `docs/constitution.pre-seb.md` y sintetizar la nueva constitución incorporando las directivas previas en las secciones A a F.
-- **RF-05 (State-Driven):** MIENTRAS exista un `docs/constitution.md` que contenga la subcadena `seb-harness` (insensible a mayúsculas/minúsculas), EL SISTEMA DEBE preservar el archivo existente y abstenerse de sobrescribirlo destructivamente.
-- **RF-06 (Event-Driven):** CUANDO `seb-iniciador` complete la consolidación de `docs/constitution.md`, EL SISTEMA DEBE generar o sustituir los archivos de asistentes detectados (`GEMINI.md`, `CLAUDE.md`) como stubs canónicos de redirección que apunten a `docs/constitution.md` y `AGENTS.md`.
-- **RF-07 (Unwanted Behavior):** SI al momento de crear un respaldo ya existe un archivo con la ruta `<nombre>.pre-seb.<ext>`, ENTONCES EL SISTEMA DEBE conservar el respaldo preexistente sin sobrescribirlo y emitir un mensaje de advertencia.
-- **RF-08 (Event-Driven):** CUANDO se ejecute la desinstalación del arnés mediante `uninstall.sh`, EL SISTEMA DEBE identificar todos los archivos con patrón `*.pre-seb.*` generados por el arnés y restaurarlos a su denominación original sin el infijo `.pre-seb`.
-- **RF-09 (Ubiquitous):** EL SISTEMA DEBE considerar como perteneciente a `seb-harness` a cualquier archivo de contexto si contiene la subcadena `seb-harness` de manera insensible a mayúsculas y minúsculas.
+- **007-RF-01 (Event-Driven):** CUANDO se ejecute el aprovisionamiento del arnés sobre un proyecto destino con un archivo `AGENTS.md` preexistente que no contenga la subcadena `seb-harness` (insensible a mayúsculas/minúsculas), EL SISTEMA DEBE respaldar dicho archivo bajo el nombre `AGENTS.pre-seb.md` antes de instalar el protocolo operativo oficial.
+- **007-RF-02 (Event-Driven):** CUANDO se ejecute el aprovisionamiento del arnés sobre un proyecto destino donde existan archivos de asistentes de IA ajenos (`GEMINI.md`, `CLAUDE.md`) que no contengan la subcadena `seb-harness` (insensible a mayúsculas/minúsculas), EL SISTEMA DEBE generar un respaldo para cada uno bajo la nomenclatura `<nombre>.pre-seb.<ext>`.
+- **007-RF-03 (State-Driven):** MIENTRAS se ejecute la fase de reconocimiento de `seb-iniciador`, EL SISTEMA DEBE incluir e inspeccionar obligatoriamente los archivos de contexto preexistentes (`AGENTS.md`, `AGENTS.pre-seb.md`, `GEMINI.md`, `GEMINI.pre-seb.md`, `CLAUDE.md`, `CLAUDE.pre-seb.md` y `docs/constitution.pre-seb.md` si están presentes) para extraer reglas de negocio, arquitectura y comandos de verificación.
+- **007-RF-04 (Event-Driven):** CUANDO se ejecute `seb-iniciador` en un proyecto donde ya exista `docs/constitution.md` sin la subcadena `seb-harness` (insensible a mayúsculas/minúsculas), EL SISTEMA DEBE respaldar el archivo original como `docs/constitution.pre-seb.md` y sintetizar la nueva constitución incorporando las directivas previas en las secciones A a F.
+- **007-RF-05 (State-Driven):** MIENTRAS exista un `docs/constitution.md` que contenga la subcadena `seb-harness` (insensible a mayúsculas/minúsculas), EL SISTEMA DEBE preservar el archivo existente y abstenerse de sobrescribirlo destructivamente.
+- **007-RF-06 (Event-Driven):** CUANDO `seb-iniciador` complete la consolidación de `docs/constitution.md`, EL SISTEMA DEBE generar o sustituir los archivos de asistentes detectados (`GEMINI.md`, `CLAUDE.md`) como stubs canónicos de redirección que apunten a `docs/constitution.md` y `AGENTS.md`.
+- **007-RF-07 (Unwanted Behavior):** SI al momento de crear un respaldo ya existe un archivo con la ruta `<nombre>.pre-seb.<ext>`, ENTONCES EL SISTEMA DEBE conservar el respaldo preexistente sin sobrescribirlo y emitir un mensaje de advertencia.
+- **007-RF-08 (Event-Driven):** CUANDO se ejecute la desinstalación del arnés mediante `uninstall.sh`, EL SISTEMA DEBE identificar todos los archivos con patrón `*.pre-seb.*` generados por el arnés y restaurarlos a su denominación original sin el infijo `.pre-seb`.
+- **007-RF-09 (Ubiquitous):** EL SISTEMA DEBE considerar como perteneciente a `seb-harness` a cualquier archivo de contexto si contiene la subcadena `seb-harness` de manera insensible a mayúsculas y minúsculas.
 
 ## 6. Requisitos No Funcionales (Verificables)
 
-- **RNF-01 (Idempotencia):** La ejecución repetida de los scripts de instalación y de las rutinas de inicialización en un proyecto ya configurado debe finalizar con código de salida `0` y mantener inalterada la consistencia de los respaldos y stubs.
-- **RNF-02 (Aislamiento y Determinismo):** El reconocimiento de firmas, la creación de respaldos, la generación de stubs y la restauración en la desinstalación deben operar de manera puramente local y fuera de línea, sin dependencias de red ni herramientas no deterministas.
+- **007-RNF-01 (Idempotencia):** La ejecución repetida de los scripts de instalación y de las rutinas de inicialización en un proyecto ya configurado debe finalizar con código de salida `0` y mantener inalterada la consistencia de los respaldos y stubs.
+- **007-RNF-02 (Aislamiento y Determinismo):** El reconocimiento de firmas, la creación de respaldos, la generación de stubs y la restauración en la desinstalación deben operar de manera puramente local y fuera de línea, sin dependencias de red ni herramientas no deterministas.
 
 ## 7. Casos Límite (Edge Cases)
 
-- **CL-01 (Archivos vacíos o en blanco):** Si un archivo de contexto ajeno tiene un tamaño de 0 bytes o contiene solo espacios en blanco, el sistema debe respaldarlo igualmente sin emitir errores de ejecución.
-- **CL-02 (Proyectos Greenfield):** En proyectos sin ningún archivo de contexto previo, el proceso de instalación e inicialización debe completarse normalmente sin crear archivos `.pre-seb` espurios.
-- **CL-03 (Directivas previas contradictorias):** Si los archivos de contexto previos contienen instrucciones incompatibles con el arnés (por ejemplo, omitir tests o saltar especificaciones), el proceso debe descartar dichas directivas operativas y señalar la discrepancia en `MEMORY.md`.
+- **007-CL-01 (Archivos vacíos o en blanco):** Si un archivo de contexto ajeno tiene un tamaño de 0 bytes o contiene solo espacios en blanco, el sistema debe respaldarlo igualmente sin emitir errores de ejecución.
+- **007-CL-02 (Proyectos Greenfield):** En proyectos sin ningún archivo de contexto previo, el proceso de instalación e inicialización debe completarse normalmente sin crear archivos `.pre-seb` espurios.
+- **007-CL-03 (Directivas previas contradictorias):** Si los archivos de contexto previos contienen instrucciones incompatibles con el arnés (por ejemplo, omitir tests o saltar especificaciones), el proceso debe descartar dichas directivas operativas y señalar la discrepancia en `MEMORY.md`.
 
 ## 8. Fuera de Alcance (Out of Scope)
 
@@ -61,7 +61,7 @@ El objetivo de esta tarea es dotar a `seb-harness` de un mecanismo determinista 
 
 ## 9. Criterios de Finalización (Definition of Done)
 
-- Todos los requisitos funcionales (`RF-01` a `RF-09`) cuentan con verificación programática en estado `[PASA]` ejecutada mediante `.seb/bin/seb verify migracion_contexto_brownfield`.
+- Todos los requisitos funcionales (`007-RF-01` a `007-RF-09`) cuentan con verificación programática en estado `[PASA]` ejecutada mediante `.seb/bin/seb verify migracion_contexto_brownfield`.
 - La suite de tests unitarios y de integración de `engine/`, `install.sh` y `uninstall.sh` valida la gestión de respaldos, stubs y restauración.
 - Cero violaciones a `docs/constitution.md`.
 

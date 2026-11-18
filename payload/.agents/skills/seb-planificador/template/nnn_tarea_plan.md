@@ -10,10 +10,10 @@
 
 ## 2. Mapa de Archivos a Crear o Modificar
 
-| Archivo / Ruta | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica                         | Requisitos Cubiertos (`RF-XX`) |
+| Archivo / Ruta | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica                         | Requisitos Cubiertos (`<NNN>-RF-XX`) |
 | :------------- | :----------------------------- | :---------------------------------------------- | :----------------------------- |
-| `path/to/file` | `MODIFICAR`                    | [Descripción concisa]                           | `RF-01`, `RF-02`               |
-| `path/to/test` | `CREAR`                        | [Tests unitarios/integración de los casos EARS] | `RF-01`, `RF-02`               |
+| `path/to/file` | `MODIFICAR`                    | [Descripción concisa]                           | `<NNN>-RF-01`, `<NNN>-RF-02`               |
+| `path/to/test` | `CREAR`                        | [Tests unitarios/integración de los casos EARS] | `<NNN>-RF-01`, `<NNN>-RF-02`               |
 
 ## 3. Contratos, Firmas y Modelo de Datos
 
@@ -28,9 +28,9 @@
 
 _Regla para el Agente Implementador: Ejecuta UNA tarea a la vez en orden de dependencia. Primero escribe el test y verifica que falle (Rojo), luego escribe el código mínimo hasta pasar (Verde)._
 
-- [ ] **T1. <Descripción 20-30 atómica de min máximo>** (`RF-XX`)
+- [ ] **T1. <Descripción 20-30 atómica de min máximo>** (`<NNN>-RF-XX`)
   - _Archivos:_ `...`
-  - _Hecho cuando:_ El comando `CHK-01` de `specs/<NNN>_<nombre_tarea>_verificador.md` devuelve exit code `0`.
-- [ ] **T2. <Descripción atómica>** (`RF-YY`)
+  - _Hecho cuando:_ El comando `<NNN>-CHK-01` de `specs/<NNN>_<nombre_tarea>_verificador.md` devuelve exit code `0`.
+- [ ] **T2. <Descripción atómica>** (`<NNN>-RF-YY`)
   - _Archivos:_ `...`
-  - _Hecho cuando:_ El comando `CHK-02` de `specs/<NNN>_<nombre_tarea>_verificador.md` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `<NNN>-CHK-02` de `specs/<NNN>_<nombre_tarea>_verificador.md` devuelve exit code `0`.

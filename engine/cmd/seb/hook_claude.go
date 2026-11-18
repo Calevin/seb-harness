@@ -268,6 +268,17 @@ func processHookPreToolWithFormat(db *sql.DB, payloadBytes []byte, envSkill, act
 
 	// 2. Bloqueo de comandos destructivos o evasion
 	if cmdStr != "" {
+		// Anti-escalada (Spec 013): ningun agente puede ejecutar one-offs ni activar el rol migrador
+		if migradorEscalationRegex.MatchString(cmdStr) {
+			if db != nil {
+				logInternalAction(db, "", activeRole, "guard-blocked:escalation", cmdStr, "DENIED", 0, 1)
+			}
+			out, emit := formatHookOutput(format, "pre-tool", HookDecision{
+				Decision: "deny",
+				Reason:   migradorEscalationReason,
+			})
+			return out, emit, nil
+		}
 		if dangerousCmdRegex.MatchString(cmdStr) {
 			out, emit := formatHookOutput(format, "pre-tool", HookDecision{
 				Decision: "deny",

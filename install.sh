@@ -362,6 +362,25 @@ else
     info "Omitiendo compilación (--no-build)."
 fi
 
+# --- Aviso de identificadores heredados (Spec 013) -------------------------------
+# Cuenta verificadores con filas de control sin prefijo de spec (CHK-NN) fuera de bloques cercados.
+LEGACY_TASKS=0
+if [ -d "$TARGET/specs" ]; then
+    for vf in "$TARGET"/specs/*_verificador.md; do
+        [ -f "$vf" ] || continue
+        if awk '/^[[:space:]]*```/ { fence = !fence; next }
+                !fence && /^[[:space:]]*\|[[:space:]]*CHK-/ { found = 1; exit }
+                END { exit !found }' "$vf"; then
+            LEGACY_TASKS=$((LEGACY_TASKS + 1))
+        fi
+    done
+fi
+if [ "$LEGACY_TASKS" -gt 0 ]; then
+    echo
+    warn "AVISO: $LEGACY_TASKS tareas contienen identificadores heredados (CHK-NN). seb verify las rechazará hasta migrar."
+    echo "   Ejecutá: .seb/bin/seb role set migrador && .seb/bin/seb oneoff 013 && .seb/bin/seb role clear"
+fi
+
 # --- Resumen --------------------------------------------------------------------
 echo
 if [ "$BUILD_FAILED" -eq 1 ]; then

@@ -1,6 +1,6 @@
 # UC-provisioning_harness_uninstall: Desinstalacion Quirurgica y Reversion del Arnes
 
-> **Trazabilidad SDD:** Derivado de la spec `specs/003_desinstalacion_arnes_spec.md` (Requisitos: `RF-01` a `RF-18`, `RNF-01`, `RNF-02`). Complementado por `specs/007_migracion_contexto_brownfield_spec.md` (`RF-08`) y `specs/010_integracion_documentador_spec.md` (`RF-12`).
+> **Trazabilidad SDD:** Derivado de la spec `specs/003_desinstalacion_arnes_spec.md` (Requisitos: `003-RF-01` a `003-RF-18`, `003-RNF-01`, `003-RNF-02`). Complementado por `specs/007_migracion_contexto_brownfield_spec.md` (`007-RF-08`) y `specs/010_integracion_documentador_spec.md` (`010-RF-12`).
 
 ## 1. Ficha de Intencion
 - **ID:** UC-provisioning_harness_uninstall
@@ -10,9 +10,9 @@
   - Directorio objetivo existente en el sistema de archivos.
   - Presencia del directorio maestro `payload/.agents/` en el repositorio del arnes para identificar los componentes oficiales a desinstalar.
 - **Invariantes de Negocio:**
-  - Por defecto (sin `--purge`), se preservan intactos `specs/`, `docs/constitution.md`, `docs/use-cases/`, `AGENTS.md` y `MEMORY.md` (`RF-17`, `Spec 010 RF-12`).
-  - Dentro de `.agents/`, solo se eliminan los archivos y subdirectorios provistos por `payload/.agents/`, conservando reglas o skills propios del proyecto (`RF-06`).
-  - En entornos no interactivos (`stdin` no es TTY), el uso de `--purge` exige obligatoriamente `--force` (`-f`) o aborta con codigo `1` (`RF-15`).
+  - Por defecto (sin `--purge`), se preservan intactos `specs/`, `docs/constitution.md`, `docs/use-cases/`, `AGENTS.md` y `MEMORY.md` (`010-RF-17`, `Spec 010 010-RF-12`).
+  - Dentro de `.agents/`, solo se eliminan los archivos y subdirectorios provistos por `payload/.agents/`, conservando reglas o skills propios del proyecto (`003-RF-06`).
+  - En entornos no interactivos (`stdin` no es TTY), el uso de `--purge` exige obligatoriamente `--force` (`-f`) o aborta con codigo `1` (`003-RF-15`).
 
 ## 2. Diagrama de Interaccion del Sistema (SSD)
 ```mermaid
@@ -59,11 +59,11 @@ flowchart TD
 ## 4. Caminos Alternativos y Catalogo de Errores
 | Error Code | Causa Raiz | Respuesta / Efecto |
 | :--- | :--- | :--- |
-| `SELF_WITH_TARGET_ARG` | Uso combinado de `--self` y un directorio destino posicional | Mensaje de error en `stderr` y salida con `exit code 1` (`RF-09`) |
-| `MISSING_SELF_FLAG_ON_HARNESS` | Ejecucion sobre el propio repositorio `seb-harness` sin `--self` | Advertencia de seguridad en `stderr` y salida con `exit code 1` (`RF-10`) |
-| `TARGET_DIR_NOT_FOUND` | El directorio objetivo especificado no existe | Mensaje de error en `stderr` y salida con `exit code 1` (`RF-11`) |
-| `UNEXPECTED_AGENTS_SYMLINK` | `.agents` es un enlace simbolico en un proyecto destino sin `--self` | Aborto inmediato con `exit code 1` sin seguir ni borrar el enlace (`CL-04`) |
-| `NON_INTERACTIVE_PURGE_WITHOUT_FORCE` | Invocacion de `--purge` sin TTY y sin `-f`/`--force` | Aborto inmediato con `exit code 1` protegiendo artefactos (`RF-15`, `CL-05`) |
+| `SELF_WITH_TARGET_ARG` | Uso combinado de `--self` y un directorio destino posicional | Mensaje de error en `stderr` y salida con `exit code 1` (`003-RF-09`) |
+| `MISSING_SELF_FLAG_ON_HARNESS` | Ejecucion sobre el propio repositorio `seb-harness` sin `--self` | Advertencia de seguridad en `stderr` y salida con `exit code 1` (`003-RF-10`) |
+| `TARGET_DIR_NOT_FOUND` | El directorio objetivo especificado no existe | Mensaje de error en `stderr` y salida con `exit code 1` (`003-RF-11`) |
+| `UNEXPECTED_AGENTS_SYMLINK` | `.agents` es un enlace simbolico en un proyecto destino sin `--self` | Aborto inmediato con `exit code 1` sin seguir ni borrar el enlace (`003-CL-04`) |
+| `NON_INTERACTIVE_PURGE_WITHOUT_FORCE` | Invocacion de `--purge` sin TTY y sin `-f`/`--force` | Aborto inmediato con `exit code 1` protegiendo artefactos (`003-RF-15`, `003-CL-05`) |
 
 ## 5. Postcondiciones y Efectos Secundarios
 - **Estado Persistido:** Eliminacion de `.seb/`, limpieza de entradas del arnes en `.gitignore`, remocion selectiva de `.agents/` (conservando archivos personalizados), restauracion de hooks `.bak-seb` y restauracion de respaldos `*.pre-seb.*`. Si se ejecuto `--purge`, eliminacion adicional de `specs/`, `AGENTS.md`, `MEMORY.md` y `docs/constitution.md` (removiendo `docs/` solo si queda vacio).

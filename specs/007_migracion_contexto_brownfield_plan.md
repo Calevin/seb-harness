@@ -29,10 +29,10 @@ Para solucionar este desafío respetando los principios de gobernanza determinis
 
 | Archivo / Ruta | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica | Requisitos Cubiertos (`RF-XX`) |
 | :--- | :--- | :--- | :--- |
-| `install.sh` | `MODIFICAR` | Incorporar detección de firma `seb-harness`, respaldo de `AGENTS.md` a `AGENTS.pre-seb.md`, respaldo de `GEMINI.md` y `CLAUDE.md` a `<nombre>.pre-seb.<ext>`, y protección anti-sobrescritura de backups. | `RF-01`, `RF-02`, `RF-07`, `RF-09`, `RNF-01`, `RNF-02`, `CL-01`, `CL-02` |
-| `uninstall.sh` | `MODIFICAR` | Incorporar detección y restauración automática de archivos `*.pre-seb.*` a sus nombres originales (con soporte de `--dry-run`). | `RF-08`, `RNF-01`, `RNF-02` |
-| `payload/.agents/skills/seb-iniciador/SKILL.md` | `MODIFICAR` | Actualizar permisos de escritura para stubs, lista de inspección de contexto (incluyendo archivos `.pre-seb`), protocolo de constitución previa y directiva de generación de stubs anti-split-brain. | `RF-03`, `RF-04`, `RF-05`, `RF-06`, `CL-03` |
-| `engine/cmd/seb/brownfield_migration_test.go` | `CREAR` | Suite determinista de pruebas unitarias y de integración en Go que valida respaldos de instalación, stubs, restauración en desinstalación y casos límite. | `RF-01` a `RF-09`, `RNF-01`, `RNF-02`, `CL-01`, `CL-02` |
+| `install.sh` | `MODIFICAR` | Incorporar detección de firma `seb-harness`, respaldo de `AGENTS.md` a `AGENTS.pre-seb.md`, respaldo de `GEMINI.md` y `CLAUDE.md` a `<nombre>.pre-seb.<ext>`, y protección anti-sobrescritura de backups. | `007-RF-01`, `007-RF-02`, `007-RF-07`, `007-RF-09`, `007-RNF-01`, `007-RNF-02`, `007-CL-01`, `007-CL-02` |
+| `uninstall.sh` | `MODIFICAR` | Incorporar detección y restauración automática de archivos `*.pre-seb.*` a sus nombres originales (con soporte de `--dry-run`). | `007-RF-08`, `007-RNF-01`, `007-RNF-02` |
+| `payload/.agents/skills/seb-iniciador/SKILL.md` | `MODIFICAR` | Actualizar permisos de escritura para stubs, lista de inspección de contexto (incluyendo archivos `.pre-seb`), protocolo de constitución previa y directiva de generación de stubs anti-split-brain. | `007-RF-03`, `007-RF-04`, `007-RF-05`, `007-RF-06`, `007-CL-03` |
+| `engine/cmd/seb/brownfield_migration_test.go` | `CREAR` | Suite determinista de pruebas unitarias y de integración en Go que valida respaldos de instalación, stubs, restauración en desinstalación y casos límite. | `007-RF-01` a `007-RF-09`, `007-RNF-01`, `007-RNF-02`, `007-CL-01`, `007-CL-02` |
 
 ## 3. Contratos, Firmas y Formato de Artefactos
 
@@ -92,6 +92,6 @@ backup_pre_seb() {
 
 ## 5. Criterios de Aceptación y Guardarraíles de Verificación
 
-- `CHK-01` a `CHK-05` en estado `[PASA]`.
+- `007-CHK-01` a `007-CHK-05` en estado `[PASA]`.
 - Cero advertencias en `go vet ./...`.
 - Cero violaciones a `docs/constitution.md`.

@@ -53,6 +53,10 @@ SEB_SKILL="seb-especificador" .seb/bin/seb spec-next <nombre_tarea>
 
 Use the exact file path returned by the command (e.g., `specs/001_autenticacion_jwt_spec.md`).
 
+#### Globally Unique Identifiers (`<NNN>-<TIPO>-<NN>`)
+
+Every identifier declared in the specification (`HU`, `RF`, `RNF`, `CL`) MUST carry the spec prefix, e.g. `013-RF-05`, so it stays unique across the whole repository. When filling the template, replace the `<NNN>` placeholder of every identifier with the three-digit ID returned by `seb spec-next` (for `specs/013_x_spec.md`: `013-HU-01`, `013-RF-01`, `013-RNF-01`, `013-CL-01`). Legacy unprefixed identifiers (`RF-01`) are no longer valid in new specifications.
+
 ### Phase 4: Write `specs/<NNN>_<nombre_tarea>_spec.md` Using Strict EARS Syntax
 
 Write the specification in **Spanish** using the exact template below.

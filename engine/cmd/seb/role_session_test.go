@@ -257,7 +257,7 @@ func TestRoleLifecyclePlanLockAndCleanup(t *testing.T) {
 	planPath := filepath.Join("specs", "008_test_plan.md")
 
 	_ = os.WriteFile(specPath, []byte("# Spec 008\n- **Tarea ID:** 008\n- **Estado:** APROBADA\n"), 0644)
-	_ = os.WriteFile(verifPath, []byte("# Verificador\n| Check ID | Requisito | Descripcion | Comando |\n| :--- | :--- | :--- | :--- |\n| CHK-01 | RF-01 | Test | `echo ok` |\n"), 0644)
+	_ = os.WriteFile(verifPath, []byte("# Verificador\n| Check ID | Requisito | Descripcion | Comando |\n| :--- | :--- | :--- | :--- |\n| 008-CHK-01 | 008-RF-01 | Test | `echo ok` |\n"), 0644)
 	_ = os.WriteFile(planPath, []byte("# Plan\n"), 0644)
 
 	_, _ = db.Exec(`INSERT INTO tasks (id, name, spec_path, status) VALUES ('008', 'test', ?, 'SPECIFIED')`, specPath)

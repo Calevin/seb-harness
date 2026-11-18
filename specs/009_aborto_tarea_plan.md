@@ -18,8 +18,8 @@ La implementación del comando `abort` (con soporte para `seb abort` y `seb task
 
 | Archivo / Ruta | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica | Requisitos Cubiertos (`RF-XX`) |
 | :--- | :--- | :--- | :--- |
-| `engine/cmd/seb/main.go` | `MODIFICAR` | Agregar subcomandos `abort` y `task abort`, soporte de flags `--purge` y `--force` / `-f`, función `cmdAbort`, campos en `TaskLock`, actualización en `cmdStatus` y rechazo en validador de DAG para tareas abortadas | `RF-01` a `RF-14`, `RNF-01` a `RNF-04` |
-| `engine/cmd/seb/task_abort_test.go` | `CREAR` | Batería de pruebas unitarias y de integración en Go para validar aborto formal, purga, guardarraíles, DAG e idempotencia | `RF-01` a `RF-14`, `CL-01` a `CL-04` |
+| `engine/cmd/seb/main.go` | `MODIFICAR` | Agregar subcomandos `abort` y `task abort`, soporte de flags `--purge` y `--force` / `-f`, función `cmdAbort`, campos en `TaskLock`, actualización en `cmdStatus` y rechazo en validador de DAG para tareas abortadas | `009-RF-01` a `009-RF-14`, `009-RNF-01` a `009-RNF-04` |
+| `engine/cmd/seb/task_abort_test.go` | `CREAR` | Batería de pruebas unitarias y de integración en Go para validar aborto formal, purga, guardarraíles, DAG e idempotencia | `009-RF-01` a `009-RF-14`, `009-CL-01` a `009-CL-04` |
 
 ## 3. Contratos, Firmas y Modelo de Datos
 
@@ -61,15 +61,15 @@ func checkDependentTasks(targetTask TaskInfo) ([]string, error)
 
 ## 5. Secuencia de Tareas Atómicas (TDD: Test en Rojo -> Código -> Test en Verde)
 
-- [ ] **T1. Estructura de datos, despacho en CLI y pruebas de aborto formal (`TestTaskAbortFormal`)** (`RF-01`, `RF-02`, `RF-03`, `RF-04`, `RF-05`, `RNF-03`, `CL-01`, `CL-03`)
+- [ ] **T1. Estructura de datos, despacho en CLI y pruebas de aborto formal (`TestTaskAbortFormal`)** (`009-RF-01`, `009-RF-02`, `009-RF-03`, `009-RF-04`, `009-RF-05`, `009-RNF-03`, `009-CL-01`, `009-CL-03`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/task_abort_test.go`
-  - _Hecho cuando:_ El comando `CHK-01` de `specs/009_aborto_tarea_verificador.md` devuelve exit code `0`.
-- [ ] **T2. Implementación de purga atómica y liberación de prefijo secuencial (`TestTaskAbortPurge`)** (`RF-06`, `RF-07`, `RF-08`, `RF-09`, `RNF-02`, `RNF-04`, `CL-02`, `CL-04`)
+  - _Hecho cuando:_ El comando `009-CHK-01` de `specs/009_aborto_tarea_verificador.md` devuelve exit code `0`.
+- [ ] **T2. Implementación de purga atómica y liberación de prefijo secuencial (`TestTaskAbortPurge`)** (`009-RF-06`, `009-RF-07`, `009-RF-08`, `009-RF-09`, `009-RNF-02`, `009-RNF-04`, `009-CL-02`, `009-CL-04`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/task_abort_test.go`
-  - _Hecho cuando:_ El comando `CHK-02` de `specs/009_aborto_tarea_verificador.md` devuelve exit code `0`.
-- [ ] **T3. Guardarraíles de protección (`--force`), validaciones de DAG, manejo de errores y alias CLI (`TestTaskAbortGuardsAndErrors`)** (`RF-10`, `RF-11`, `RF-12`, `RF-13`, `RF-14`, `RNF-01`)
+  - _Hecho cuando:_ El comando `009-CHK-02` de `specs/009_aborto_tarea_verificador.md` devuelve exit code `0`.
+- [ ] **T3. Guardarraíles de protección (`--force`), validaciones de DAG, manejo de errores y alias CLI (`TestTaskAbortGuardsAndErrors`)** (`009-RF-10`, `009-RF-11`, `009-RF-12`, `009-RF-13`, `009-RF-14`, `009-RNF-01`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/task_abort_test.go`
-  - _Hecho cuando:_ El comando `CHK-03` de `specs/009_aborto_tarea_verificador.md` devuelve exit code `0`.
-- [ ] **T4. Verificación global del arnés (linter oficial y suite completa sin regresiones)** (`RNF-01`, `RNF-04`, `GLOBAL`)
+  - _Hecho cuando:_ El comando `009-CHK-03` de `specs/009_aborto_tarea_verificador.md` devuelve exit code `0`.
+- [ ] **T4. Verificación global del arnés (linter oficial y suite completa sin regresiones)** (`009-RNF-01`, `009-RNF-04`, `GLOBAL`)
   - _Archivos:_ `engine/...`
-  - _Hecho cuando:_ Los comandos `CHK-98` y `CHK-99` de `specs/009_aborto_tarea_verificador.md` devuelven exit code `0`.
+  - _Hecho cuando:_ Los comandos `009-CHK-98` y `009-CHK-99` de `specs/009_aborto_tarea_verificador.md` devuelven exit code `0`.

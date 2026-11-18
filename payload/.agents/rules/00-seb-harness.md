@@ -34,3 +34,12 @@ Operas bajo el control de **`seb-harness`**. Estas restricciones son acumulativa
 ## 5. Integridad del Grafo de Dependencias (DAG)
 - Toda tarea que declare dependencias en su spec (`Depends-On:` / `Dependencias:`) requiere que dichas dependencias directas estén formalmente verificadas (`verified: true` y `commit_hash` no vacío en `.seb/seb.lock`).
 - Queda terminantemente prohibido planificar o implementar código sobre una tarea si sus prerrequisitos directos no han superado exitosamente su propia suite de verificación determinista.
+
+## 6. Identificadores Únicos de Requisitos
+- Todo elemento asociado a una spec (`HU`, `RF`, `RNF`, `CL`, `CHK`) usa el identificador prefijado `<NNN>-<TIPO>-<NN>` (ej. `013-RF-05`); el formato sin prefijo es heredado y se rechaza en los verificadores.
+- Al referenciar un requisito fuera de su propia spec (comentarios de código, tests, `MEMORY.md`, commits, casos de uso) usa siempre el identificador prefijado, solo en texto (comentarios y documentos), nunca como parte de identificadores de código.
+
+## 7. Operaciones One-Off de Actualización del Arnés
+- Las Operaciones One-Off son excepcionales, están identificadas por el ID de la spec que las define y se ejecutan con `.seb/bin/seb oneoff <id_spec>`.
+- Solo puede ejecutarlas el humano con el rol `migrador` activo; **tienes prohibido** activar ese rol (`seb role set migrador`, `SEB_SKILL=migrador`) o ejecutar una one-off: el hook lo deniega. Si detectas que hace falta una, indícale al humano el comando exacto.
+- Son la única excepción autorizada a la inmutabilidad de specs y verificadores sellados (reescritura y resellado auditados en `.seb/seb.lock` y `.seb/seb-audit.db`).

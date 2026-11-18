@@ -122,6 +122,10 @@ func main() {
 		if err := handleTaskSubcommand(db, args); err != nil {
 			fatal("%v", err)
 		}
+	case "oneoff":
+		code := cmdOneOff(db, args, os.Stdout, os.Stderr)
+		db.Close()
+		os.Exit(code)
 	default:
 		printUsage()
 		os.Exit(1)
@@ -572,13 +576,16 @@ func cmdVerify(db *sql.DB, args []string) {
 	fmt.Println("\n**VEREDICTO:** `APROBADO` — Todos los controles deterministas pasaron con éxito.")
 }
 
-// Identificadores y analizador de tablas Markdown en specs/<tarea>_verificador.md
-var (
-	checkCandidateRegex = regexp.MustCompile(`^\s*\|\s*CHK-`)
-	checkIDRegex        = regexp.MustCompile(`^CHK-[A-Za-z0-9_-]+$`)
-)
-
+// Analizador de tablas Markdown en specs/<NNN>_<tarea>_verificador.md.
+// El ID de tarea se deriva del nombre del archivo y la existencia de specs se resuelve
+// en el directorio del propio verificador (Spec 013).
 func parseVerifierFile(path string) ([]CheckItem, error) {
+	taskID, err := taskIDFromVerifierPath(path)
+	if err != nil {
+		return nil, err
+	}
+	knownSpecs := existingSpecIDs(filepath.Dir(path))
+
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -605,8 +612,10 @@ func parseVerifierFile(path string) ([]CheckItem, error) {
 			continue
 		}
 
-		// Filtrar lineas que no correspondan a una fila candidata a control
-		if !checkCandidateRegex.MatchString(trimmedLine) {
+		// Filtrar lineas que no correspondan a una fila candidata a control:
+		// primera celda que contiene "-CHK-" o comienza con "CHK-"
+		firstCell, isRow := firstTableCell(trimmedLine)
+		if !isRow || !isCandidateFirstCell(firstCell) {
 			continue
 		}
 
@@ -649,8 +658,8 @@ func parseVerifierFile(path string) ([]CheckItem, error) {
 
 		// 1. Check ID y control de unicidad
 		checkID := strings.TrimSpace(cells[1])
-		if !checkIDRegex.MatchString(checkID) {
-			return nil, fmt.Errorf("línea %d: formato de identificador de control inválido '%s'", lineNum, checkID)
+		if err := validateCheckID(checkID, taskID); err != nil {
+			return nil, fmt.Errorf("línea %d: %w", lineNum, err)
 		}
 		if prevLine, exists := seenIDs[checkID]; exists {
 			return nil, fmt.Errorf("línea %d: identificador de control duplicado '%s' (declarado previamente en línea %d)", lineNum, checkID, prevLine)
@@ -668,6 +677,9 @@ func parseVerifierFile(path string) ([]CheckItem, error) {
 			trimmedP := strings.TrimSpace(p)
 			if trimmedP == "" {
 				return nil, fmt.Errorf("línea %d: requisito vacío en lista de requisitos '%s'", lineNum, rawReq)
+			}
+			if err := validateRequirementRef(trimmedP, knownSpecs); err != nil {
+				return nil, fmt.Errorf("línea %d: %w", lineNum, err)
 			}
 			cleanReqs = append(cleanReqs, trimmedP)
 		}
@@ -775,6 +787,9 @@ func checkPermission(role, action, target string) bool {
 		return strings.HasPrefix(normalizedTarget, "docs/use-cases/") ||
 			normalizedTarget == "docs/use-cases/README.md" ||
 			normalizedTarget == "MEMORY.md"
+	case "migrador":
+		// Rol one-off (Spec 013): solo artefactos SDD, documentales y seb.lock; nunca codigo, tests ni constitucion
+		return isMigradorWritableTarget(target)
 	case "implementador", "default", "":
 		// El agente implementador jamás puede tocar la constitución, specs ni verificadores
 		if target == "docs/constitution.md" ||
@@ -1178,6 +1193,7 @@ Comandos disponibles:
   seb role <set <rol>|get|clear>            Gestiona el rol de sesión activo
   seb abort <tarea> [--purge] [--force]    Aborta formalmente o purga una tarea y sus artefactos
   seb task abort <tarea> [flags]            Alias estructurado de abort
+  seb oneoff [<id_spec>] [--dry-run]        Lista o ejecuta operaciones one-off de actualización (rol migrador)
   seb memory-add "<categoría>" "<texto>"    Añade aprendizaje a MEMORY.md y registra en SQLite
   seb status                                Muestra el estado de todas las specs en el proyecto
   seb audit log [flags]                     Registra llamada a tool, latencia, tokens y costo USD
@@ -1469,6 +1485,7 @@ var canonicalRoles = map[string]bool{
 	"seb-verificador":   true,
 	"seb-documentador":  true,
 	"implementador":     true,
+	"migrador":          true,
 }
 
 func normalizeRole(role string) string {
@@ -1486,7 +1503,7 @@ func getActiveRolePath() string {
 func setActiveRole(role string, rolePaths ...string) error {
 	norm := normalizeRole(role)
 	if !isCanonicalRole(norm) {
-		return fmt.Errorf("rol '%s' no reconocido. Roles canónicos válidos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, seb-documentador, implementador", role)
+		return fmt.Errorf("rol '%s' no reconocido. Roles canónicos válidos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, seb-documentador, implementador, migrador", role)
 	}
 	path := defaultActiveRolePath
 	if len(rolePaths) > 0 && rolePaths[0] != "" {
@@ -1535,7 +1552,7 @@ func cmdRole(db *sql.DB, args []string) error {
 	switch sub {
 	case "set":
 		if len(args) < 2 || strings.TrimSpace(args[1]) == "" {
-			return fmt.Errorf("debe especificar un rol válido. Roles canónicos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, seb-documentador, implementador")
+			return fmt.Errorf("debe especificar un rol válido. Roles canónicos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, seb-documentador, implementador, migrador")
 		}
 		roleArg := args[1]
 		if err := setActiveRole(roleArg); err != nil {

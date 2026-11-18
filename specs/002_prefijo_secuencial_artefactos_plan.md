@@ -21,17 +21,17 @@ Se actualiza además la persistencia en Git (`.seb/seb.lock` y `.seb/ACTIVE_TASK
 
 | Archivo / Ruta | Acción | Responsabilidad Técnica | Requisitos Cubiertos |
 | :--- | :--- | :--- | :--- |
-| `engine/cmd/seb/main.go` | `MODIFICAR` | Integrar `resolveTask`, claves canónicas en `seb.lock`/`ACTIVE_TASK` y rutas `<NNN>_` en `plan-lock` y `verify`. | `RF-01` a `RF-08` |
-| `engine/cmd/seb/resolver_test.go` | `CREAR` | Tests unitarios para resolución flexible, ambigüedad y formato de rutas. | `RF-01`, `RF-06`, `RF-07` |
-| `engine/cmd/seb/guard_test.go` | `CREAR` | Tests unitarios para guardarraíles con rutas prefijadas. | `RF-09`, `RF-10` |
+| `engine/cmd/seb/main.go` | `MODIFICAR` | Integrar `resolveTask`, claves canónicas en `seb.lock`/`ACTIVE_TASK` y rutas `<NNN>_` en `plan-lock` y `verify`. | `002-RF-01` a `002-RF-08` |
+| `engine/cmd/seb/resolver_test.go` | `CREAR` | Tests unitarios para resolución flexible, ambigüedad y formato de rutas. | `002-RF-01`, `002-RF-06`, `002-RF-07` |
+| `engine/cmd/seb/guard_test.go` | `CREAR` | Tests unitarios para guardarraíles con rutas prefijadas. | `002-RF-09`, `002-RF-10` |
 | `specs/001_registro_telemetria_acciones_plan.md` | `CREAR (RENOMBRAR)` | Migración de plan preexistente de tarea 001 con prefijo secuencial. | `RNF-01` |
 | `specs/001_registro_telemetria_acciones_verificador.md` | `CREAR (RENOMBRAR)` | Migración de verificador preexistente de tarea 001 con prefijo secuencial. | `RNF-01` |
 | `.seb/seb.lock` | `MODIFICAR` | Migrar clave de `registro_telemetria_acciones` a `001_registro_telemetria_acciones`. | `RF-08`, `RNF-01` |
-| `payload/.agents/skills/seb-planificador/SKILL.md` | `MODIFICAR` | Actualizar rutas esperadas a `specs/<NNN>_<tarea>_plan.md` y `specs/<NNN>_<tarea>_verificador.md`. | `RNF-02` |
-| `payload/.agents/skills/seb-verificador/SKILL.md` | `MODIFICAR` | Actualizar referencias a `specs/<NNN>_<tarea>_verificador.md`. | `RNF-02` |
-| `payload/.agents/skills/seb-planificador/template/` | `MODIFICAR` | Renombrar plantillas a `nnn_tarea_plan.md` y `nnn_tarea_verificador.md`. | `RNF-02` |
-| `docs/constitution.md` | `MODIFICAR` | Actualizar menciones de convenciones de archivos de specs/plan/verificador en secciones B, C, D y F. | `RNF-02` |
-| `payload/AGENTS.md` y `.agents/rules/00-seb-harness.md` | `MODIFICAR` | Sincronizar reglas operativas con la convención de tres artefactos prefijados. | `RNF-02` |
+| `payload/.agents/skills/seb-planificador/SKILL.md` | `MODIFICAR` | Actualizar rutas esperadas a `specs/<NNN>_<tarea>_plan.md` y `specs/<NNN>_<tarea>_verificador.md`. | `002-RNF-02` |
+| `payload/.agents/skills/seb-verificador/SKILL.md` | `MODIFICAR` | Actualizar referencias a `specs/<NNN>_<tarea>_verificador.md`. | `002-RNF-02` |
+| `payload/.agents/skills/seb-planificador/template/` | `MODIFICAR` | Renombrar plantillas a `nnn_tarea_plan.md` y `nnn_tarea_verificador.md`. | `002-RNF-02` |
+| `docs/constitution.md` | `MODIFICAR` | Actualizar menciones de convenciones de archivos de specs/plan/verificador en secciones B, C, D y F. | `002-RNF-02` |
+| `payload/AGENTS.md` y `.agents/rules/00-seb-harness.md` | `MODIFICAR` | Sincronizar reglas operativas con la convención de tres artefactos prefijados. | `002-RNF-02` |
 
 ## 3. Contratos, Firmas y Modelo de Datos
 
@@ -70,24 +70,24 @@ func resolveTask(db *sql.DB, query string) (TaskInfo, error)
 
 ## 5. Secuencia de Tareas Atómicas (TDD)
 
-- [ ] **T1. Tests unitarios de resolución y rutas de artefactos (`resolver_test.go`)** (`RF-01`, `RF-06`, `RF-07`)
+- [ ] **T1. Tests unitarios de resolución y rutas de artefactos (`resolver_test.go`)** (`002-RF-01`, `002-RF-06`, `002-RF-07`)
   - _Archivos:_ `engine/cmd/seb/resolver_test.go`
   - _Hecho cuando:_ Los tests fallen inicialmente (Rojo) porque `resolveTask` aún no está implementada.
-- [ ] **T2. Implementación de `resolveTask` y adaptación de rutas en `engine/cmd/seb/main.go`** (`RF-01`, `RF-02`, `RF-03`, `RF-06`, `RF-07`)
+- [ ] **T2. Implementación de `resolveTask` y adaptación de rutas en `engine/cmd/seb/main.go`** (`002-RF-01`, `002-RF-02`, `002-RF-03`, `002-RF-06`, `002-RF-07`)
   - _Archivos:_ `engine/cmd/seb/main.go`
-  - _Hecho cuando:_ `CHK-01` y `CHK-02` devuelvan exit code `0`.
-- [ ] **T3. Integración de clave canónica en `plan-lock`, `verify`, `seb.lock` y `ACTIVE_TASK`** (`RF-04`, `RF-05`, `RF-08`)
+  - _Hecho cuando:_ `002-CHK-01` y `002-CHK-02` devuelvan exit code `0`.
+- [ ] **T3. Integración de clave canónica en `plan-lock`, `verify`, `seb.lock` y `ACTIVE_TASK`** (`002-RF-04`, `002-RF-05`, `002-RF-08`)
   - _Archivos:_ `engine/cmd/seb/main.go`
-  - _Hecho cuando:_ `CHK-03` devuelva exit code `0`.
-- [ ] **T4. Guardarraíles de menor privilegio para rutas prefijadas (`guard_test.go` y `checkPermission`)** (`RF-09`, `RF-10`)
+  - _Hecho cuando:_ `002-CHK-03` devuelva exit code `0`.
+- [ ] **T4. Guardarraíles de menor privilegio para rutas prefijadas (`guard_test.go` y `checkPermission`)** (`002-RF-09`, `002-RF-10`)
   - _Archivos:_ `engine/cmd/seb/guard_test.go`, `engine/cmd/seb/main.go`
-  - _Hecho cuando:_ `CHK-04` devuelva exit code `0`.
+  - _Hecho cuando:_ `002-CHK-04` devuelva exit code `0`.
 - [ ] **T5. Migración quirúrgica de la tarea 001 en disco y en `seb.lock`** (`RNF-01`)
   - _Archivos:_ `specs/001_registro_telemetria_acciones_plan.md`, `specs/001_registro_telemetria_acciones_verificador.md`, `.seb/seb.lock`
-  - _Hecho cuando:_ `CHK-05` devuelva exit code `0`.
-- [ ] **T6. Actualización y sincronización de documentación, templates y skills en `payload/` y raíz** (`RNF-02`)
+  - _Hecho cuando:_ `002-CHK-05` devuelva exit code `0`.
+- [ ] **T6. Actualización y sincronización de documentación, templates y skills en `payload/` y raíz** (`002-RNF-02`)
   - _Archivos:_ `docs/constitution.md`, `AGENTS.md`, `payload/`, `.agents/`
-  - _Hecho cuando:_ `CHK-06` devuelva exit code `0`.
+  - _Hecho cuando:_ `002-CHK-06` devuelva exit code `0`.
 - [ ] **T7. Compilación final y verificación completa del arnés** (`GLOBAL`)
   - _Archivos:_ `.seb/bin/seb`
-  - _Hecho cuando:_ `CHK-98` y `CHK-99` devuelvan exit code `0`.
+  - _Hecho cuando:_ `002-CHK-98` y `002-CHK-99` devuelvan exit code `0`.

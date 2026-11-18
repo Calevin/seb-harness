@@ -25,8 +25,8 @@ El script `install.sh` opera como aprovisionador copiando componentes desde `pay
 
 | Archivo / Ruta                     | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica                                                                                                                          | Requisitos Cubiertos (`RF-XX`)           |
 | :--------------------------------- | :----------------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------- | :--------------------------------------- |
-| `uninstall.sh`                     | `CREAR`                        | Script principal de desinstalación con interfaz CLI, flags (`--self`, `--dry-run`, `--purge`, `--force`, `-h`), validaciones y limpieza atómica. | `RF-01` a `RF-18`, `RNF-01`, `RNF-02`    |
-| `engine/cmd/seb/uninstall_test.go` | `CREAR`                        | Suite de tests de integración en Go que valida programáticamente todas las aserciones de desinstalación con fixtures reales.                     | `RF-01` a `RF-18`, `RNF-01`, `RNF-02`    |
+| `uninstall.sh`                     | `CREAR`                        | Script principal de desinstalación con interfaz CLI, flags (`--self`, `--dry-run`, `--purge`, `--force`, `-h`), validaciones y limpieza atómica. | `003-RF-01` a `003-RF-18`, `003-RNF-01`, `003-RNF-02`    |
+| `engine/cmd/seb/uninstall_test.go` | `CREAR`                        | Suite de tests de integración en Go que valida programáticamente todas las aserciones de desinstalación con fixtures reales.                     | `003-RF-01` a `003-RF-18`, `003-RNF-01`, `003-RNF-02`    |
 | `README.md`                        | `MODIFICAR`                    | Documentación técnica de referencia explicando el uso de `uninstall.sh` junto a `install.sh`.                                                    | Documentación y consistencia de proyecto |
 
 ## 3. Contratos, Firmas y Modelo de Datos
@@ -134,30 +134,30 @@ fi
 
 ## 5. Secuencia de Tareas Atómicas (TDD)
 
-- [ ] **T1. Estructura base de `uninstall.sh` y validación de argumentos/seguridad** (`RF-01`, `RF-09`, `RF-10`, `RF-11`, `RF-18`)
+- [ ] **T1. Estructura base de `uninstall.sh` y validación de argumentos/seguridad** (`003-RF-01`, `003-RF-09`, `003-RF-10`, `003-RF-11`, `003-RF-18`)
   - _Archivos:_ `uninstall.sh`, `engine/cmd/seb/uninstall_test.go`
-  - _Hecho cuando:_ El comando `CHK-01` devuelve exit code `0`.
-- [ ] **T2. Reversión de Git hooks y restauración de respaldos** (`RF-02`, `RF-03`)
+  - _Hecho cuando:_ El comando `003-CHK-01` devuelve exit code `0`.
+- [ ] **T2. Reversión de Git hooks y restauración de respaldos** (`003-RF-02`, `003-RF-03`)
   - _Archivos:_ `uninstall.sh`, `engine/cmd/seb/uninstall_test.go`
-  - _Hecho cuando:_ El comando `CHK-02` devuelve exit code `0`.
-- [ ] **T3. Limpieza quirúrgica de `.gitignore` y eliminación de `.seb/`** (`RF-04`, `RF-05`)
+  - _Hecho cuando:_ El comando `003-CHK-02` devuelve exit code `0`.
+- [ ] **T3. Limpieza quirúrgica de `.gitignore` y eliminación de `.seb/`** (`003-RF-04`, `003-RF-05`)
   - _Archivos:_ `uninstall.sh`, `engine/cmd/seb/uninstall_test.go`
-  - _Hecho cuando:_ El comando `CHK-03` devuelve exit code `0`.
-- [ ] **T4. Remoción quirúrgica de `.agents/` preservando componentes propios** (`RF-06`, `RF-07`)
+  - _Hecho cuando:_ El comando `003-CHK-03` devuelve exit code `0`.
+- [ ] **T4. Remoción quirúrgica de `.agents/` preservando componentes propios** (`003-RF-06`, `003-RF-07`)
   - _Archivos:_ `uninstall.sh`, `engine/cmd/seb/uninstall_test.go`
-  - _Hecho cuando:_ El comando `CHK-04` devuelve exit code `0`.
-- [ ] **T5. Reversión de instalación en modo dogfooding (`--self`)** (`RF-08`)
+  - _Hecho cuando:_ El comando `003-CHK-04` devuelve exit code `0`.
+- [ ] **T5. Reversión de instalación en modo dogfooding (`--self`)** (`003-RF-08`)
   - _Archivos:_ `uninstall.sh`, `engine/cmd/seb/uninstall_test.go`
-  - _Hecho cuando:_ El comando `CHK-05` devuelve exit code `0`.
-- [ ] **T6. Modo de simulación pasiva (`--dry-run`)** (`RF-12`)
+  - _Hecho cuando:_ El comando `003-CHK-05` devuelve exit code `0`.
+- [ ] **T6. Modo de simulación pasiva (`--dry-run`)** (`003-RF-12`)
   - _Archivos:_ `uninstall.sh`, `engine/cmd/seb/uninstall_test.go`
-  - _Hecho cuando:_ El comando `CHK-06` devuelve exit code `0`.
-- [ ] **T7. Modo de purga destructiva (`--purge`, `--force`), validación de TTY y limpieza de `docs/`** (`RF-13`, `RF-14`, `RF-15`, `RF-16`, `RF-17`)
+  - _Hecho cuando:_ El comando `003-CHK-06` devuelve exit code `0`.
+- [ ] **T7. Modo de purga destructiva (`--purge`, `--force`), validación de TTY y limpieza de `docs/`** (`003-RF-13`, `003-RF-14`, `003-RF-15`, `003-RF-16`, `003-RF-17`)
   - _Archivos:_ `uninstall.sh`, `engine/cmd/seb/uninstall_test.go`
-  - _Hecho cuando:_ El comando `CHK-07` devuelve exit code `0`.
-- [ ] **T8. Idempotencia y validación de modo estricto Bash** (`RNF-01`, `RNF-02`)
+  - _Hecho cuando:_ El comando `003-CHK-07` devuelve exit code `0`.
+- [ ] **T8. Idempotencia y validación de modo estricto Bash** (`003-RNF-01`, `003-RNF-02`)
   - _Archivos:_ `uninstall.sh`, `engine/cmd/seb/uninstall_test.go`
-  - _Hecho cuando:_ El comando `CHK-08` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `003-CHK-08` devuelve exit code `0`.
 - [ ] **T9. Verificación estática y suite global sin regresiones** (`RNF-Stack`, `GLOBAL`)
   - _Archivos:_ `engine/cmd/seb/uninstall_test.go`, `README.md`
-  - _Hecho cuando:_ Los comandos `CHK-98` y `CHK-99` devuelven exit code `0`.
+  - _Hecho cuando:_ Los comandos `003-CHK-98` y `003-CHK-99` devuelven exit code `0`.

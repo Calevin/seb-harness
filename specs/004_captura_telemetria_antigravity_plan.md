@@ -17,7 +17,7 @@ Para resolverlo manteniendo el diseño de **Go puro sin CGO** (`docs/constitutio
    - `post-tool`: Calcula `duration_ms` desde el archivo de timer, sanea `toolCall.args` (rutas relativas al workspace, `<EXTERNAL_PATH>/<basename>` para rutas absolutas externas y truncamiento a `256` caracteres con `...[TRUNCATED]`), extrae `input_tokens`, `cache_read_tokens` y `output_tokens` del paso `step_index` en `transcriptPath` (imputándolos solo si ese `step_index` no fue contabilizado previamente en la sesión) y emite `{}` en `stdout`.
    - `stop`: Escanea `transcriptPath` buscando cualquier paso `PLANNER_RESPONSE` de la sesión cuyos tokens aún no hayan sido contabilizados (como turnos de respuesta en texto sin llamada a herramientas), los registra bajo la acción `model_response` y emite `{"decision":"allow"}` en `stdout`.
 3. **Migración Idempotente de Esquema SQLite (`cache_read_tokens` y `step_idx`):**
-   `initDBSchema` verifica e incorpora de forma idempotente la columna `cache_read_tokens INTEGER DEFAULT 0` (y metadato de control de paso o verificación por sesión/paso) en `agent_actions` sin afectar bases de datos existentes (`CL-01`), actualizando además `seb audit report` para mostrar la sumatoria de tokens en caché manteniendo su exclusión de `cost_usd` (`RF-05`).
+   `initDBSchema` verifica e incorpora de forma idempotente la columna `cache_read_tokens INTEGER DEFAULT 0` (y metadato de control de paso o verificación por sesión/paso) en `agent_actions` sin afectar bases de datos existentes (`004-CL-01`), actualizando además `seb audit report` para mostrar la sumatoria de tokens en caché manteniendo su exclusión de `cost_usd` (`004-RF-05`).
 4. **Distribución y Reversión en Proyectos Destino (`install.sh` y `uninstall.sh`):**
    Se actualiza el bucle de copia en `install.sh` y el bucle de limpieza en `uninstall.sh` para incluir archivos regulares en la raíz de `payload/.agents/` (específicamente `.agents/hooks.json`), garantizando que proyectos como `brienne` reciban y desinstalen la configuración declarativa sin perder extensiones propias.
 
@@ -25,14 +25,14 @@ Para resolverlo manteniendo el diseño de **Go puro sin CGO** (`docs/constitutio
 
 | Archivo / Ruta | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica | Requisitos Cubiertos (`RF-XX`) |
 | :--- | :--- | :--- | :--- |
-| `engine/cmd/seb/main.go` | `MODIFICAR` | Migración SQLite (`cache_read_tokens`), subcomando `seb hook <pre-tool\|post-tool\|stop>`, parser de `transcript.jsonl`, deduplicación por `step_index`, inferencia de `skill`, saneamiento de parámetros y reporte con caché. | `RF-01` a `RF-11`, `RF-13`, `RNF-01` a `RNF-03` |
-| `payload/.agents/hooks.json` | `CREAR` | Declaración oficial de hooks de ciclo de vida (`PreToolUse`, `PostToolUse`, `Stop`) para Antigravity 2.0 y `agy` CLI. | `RF-01`, `RF-02`, `RF-10`, `RF-12` |
-| `payload/.agents/hooks/pre-tool.sh` | `MODIFICAR` | Wrapper ligero que resuelve la raíz del workspace y delega `stdin`/`stdout` a `.seb/bin/seb hook pre-tool`. | `RF-01`, `RF-11` |
-| `payload/.agents/hooks/post-tool.sh` | `MODIFICAR` | Wrapper ligero que resuelve la raíz del workspace y delega `stdin`/`stdout` a `.seb/bin/seb hook post-tool`. | `RF-02` a `RF-09` |
-| `payload/.agents/hooks/stop.sh` | `CREAR` | Wrapper ligero que delega el cierre de turno a `.seb/bin/seb hook stop`. | `RF-10` |
-| `install.sh` | `MODIFICAR` | Copiar archivos de primer nivel en `payload/.agents/` (como `hooks.json`) además de subdirectorios hacia `$TARGET/.agents/`. | `RF-12` |
-| `uninstall.sh` | `MODIFICAR` | Eliminar archivos de primer nivel en `$TARGET/.agents/` provistos por `payload/.agents/` (como `hooks.json`) preservando los del usuario. | `RF-12` |
-| `engine/cmd/seb/antigravity_telemetry_test.go` | `CREAR` | Suite de pruebas unitarias y de integración deterministas para `RF-01` a `RF-13` y casos límite `CL-01` a `CL-04`. | `RF-01` a `RF-13`, `RNF-01` a `RNF-03` |
+| `engine/cmd/seb/main.go` | `MODIFICAR` | Migración SQLite (`cache_read_tokens`), subcomando `seb hook <pre-tool\|post-tool\|stop>`, parser de `transcript.jsonl`, deduplicación por `step_index`, inferencia de `skill`, saneamiento de parámetros y reporte con caché. | `004-RF-01` a `004-RF-11`, `004-RF-13`, `004-RNF-01` a `004-RNF-03` |
+| `payload/.agents/hooks.json` | `CREAR` | Declaración oficial de hooks de ciclo de vida (`PreToolUse`, `PostToolUse`, `Stop`) para Antigravity 2.0 y `agy` CLI. | `004-RF-01`, `004-RF-02`, `004-RF-10`, `004-RF-12` |
+| `payload/.agents/hooks/pre-tool.sh` | `MODIFICAR` | Wrapper ligero que resuelve la raíz del workspace y delega `stdin`/`stdout` a `.seb/bin/seb hook pre-tool`. | `004-RF-01`, `004-RF-11` |
+| `payload/.agents/hooks/post-tool.sh` | `MODIFICAR` | Wrapper ligero que resuelve la raíz del workspace y delega `stdin`/`stdout` a `.seb/bin/seb hook post-tool`. | `004-RF-02` a `004-RF-09` |
+| `payload/.agents/hooks/stop.sh` | `CREAR` | Wrapper ligero que delega el cierre de turno a `.seb/bin/seb hook stop`. | `004-RF-10` |
+| `install.sh` | `MODIFICAR` | Copiar archivos de primer nivel en `payload/.agents/` (como `hooks.json`) además de subdirectorios hacia `$TARGET/.agents/`. | `004-RF-12` |
+| `uninstall.sh` | `MODIFICAR` | Eliminar archivos de primer nivel en `$TARGET/.agents/` provistos por `payload/.agents/` (como `hooks.json`) preservando los del usuario. | `004-RF-12` |
+| `engine/cmd/seb/antigravity_telemetry_test.go` | `CREAR` | Suite de pruebas unitarias y de integración deterministas para `004-RF-01` a `004-RF-13` y casos límite `004-CL-01` a `004-CL-04`. | `004-RF-01` a `004-RF-13`, `004-RNF-01` a `004-RNF-03` |
 
 ## 3. Contratos, Firmas y Modelo de Datos
 
@@ -91,39 +91,39 @@ func extractStepMetrics(transcriptPath string, stepIdx int) (tokensIn, cacheRead
   - *Justificación:* En NixOS y proyectos destino minimalistas, `jq` puede no estar instalado en el entorno global. Además, el parseo de `transcript.jsonl`, el saneamiento recursivo de rutas JSON y la deduplicación transaccional en SQLite son órdenes de magnitud más rápidos (`<5ms`), seguros y testeables en Go puro que en scripts Bash.
   - *Alternativa descartada:* Parsear `transcript.jsonl` con `grep`/`sed`/`jq` en `post-tool.sh`.
 - **Decisión 2: Deduplicación de tokens por `(session_id, step_idx)` en SQLite.**
-  - *Justificación:* En el archivo `transcript.jsonl` de Antigravity, un paso `PLANNER_RESPONSE` tiene un `step_index` (ej. `7`) y las herramientas invocadas en ese turno se ejecutan referenciando el paso. Al guardar o verificar si los tokens del paso de modelo correspondiente ya se imputaron en `agent_actions` para esa `session_id`, garantizamos que si el modelo invoca 5 herramientas en paralelo (`CL-02`), solo la primera registre `tokens_in`, `cache_read_tokens` y `tokens_out`, y las 4 restantes registren `0`. Asimismo, en el evento `Stop` (`RF-10`), cualquier `PLANNER_RESPONSE` cuyo `step_index` no esté registrado en la sesión se inserta como `model_response`.
+  - *Justificación:* En el archivo `transcript.jsonl` de Antigravity, un paso `PLANNER_RESPONSE` tiene un `step_index` (ej. `7`) y las herramientas invocadas en ese turno se ejecutan referenciando el paso. Al guardar o verificar si los tokens del paso de modelo correspondiente ya se imputaron en `agent_actions` para esa `session_id`, garantizamos que si el modelo invoca 5 herramientas en paralelo (`004-CL-02`), solo la primera registre `tokens_in`, `cache_read_tokens` y `tokens_out`, y las 4 restantes registren `0`. Asimismo, en el evento `Stop` (`004-RF-10`), cualquier `PLANNER_RESPONSE` cuyo `step_index` no esté registrado en la sesión se inserta como `model_response`.
   - *Alternativa descartada:* Archivos temporales en `/tmp` que podrían perder coherencia frente a la base de datos SQLite.
 
 ## 5. Secuencia de Tareas Atómicas (TDD: Test en Rojo -> Código -> Test en Verde)
 
-- [x] **T1. Migración idempotente de SQLite (`cache_read_tokens`) y actualización de `seb audit log` / `seb audit report`** (`RF-05`, `RF-13`, `CL-01`)
+- [x] **T1. Migración idempotente de SQLite (`cache_read_tokens`) y actualización de `seb audit log` / `seb audit report`** (`004-RF-05`, `004-RF-13`, `004-CL-01`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/antigravity_telemetry_test.go`
-  - _Hecho cuando:_ El comando `CHK-01` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `004-CHK-01` devuelve exit code `0`.
 
-- [x] **T2. Saneamiento determinista de parámetros y resultados (rutas relativas, `<EXTERNAL_PATH>/<base>` y truncamiento `...[TRUNCATED]`)** (`RF-06`, `RF-07`, `RNF-02`, `CL-03`)
+- [x] **T2. Saneamiento determinista de parámetros y resultados (rutas relativas, `<EXTERNAL_PATH>/<base>` y truncamiento `...[TRUNCATED]`)** (`004-RF-06`, `004-RF-07`, `004-RNF-02`, `004-CL-03`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/antigravity_telemetry_test.go`
-  - _Hecho cuando:_ El comando `CHK-02` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `004-CHK-02` devuelve exit code `0`.
 
-- [x] **T3. Inferencia de habilidad activa (`skill`) desde `transcript.jsonl` y fallback a `implementador`** (`RF-11`)
+- [x] **T3. Inferencia de habilidad activa (`skill`) desde `transcript.jsonl` y fallback a `implementador`** (`004-RF-11`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/antigravity_telemetry_test.go`
-  - _Hecho cuando:_ El comando `CHK-03` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `004-CHK-03` devuelve exit code `0`.
 
-- [x] **T4. Interceptor `seb hook pre-tool` con contrato JSON (`allow`/`deny`), guardarraíles y cronometraje** (`RF-01`)
+- [x] **T4. Interceptor `seb hook pre-tool` con contrato JSON (`allow`/`deny`), guardarraíles y cronometraje** (`004-RF-01`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `payload/.agents/hooks/pre-tool.sh`, `engine/cmd/seb/antigravity_telemetry_test.go`
-  - _Hecho cuando:_ El comando `CHK-04` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `004-CHK-04` devuelve exit code `0`.
 
-- [x] **T5. Interceptor `seb hook post-tool` con extracción de `transcript.jsonl`, deduplicación por `step_index`, manejo de errores y tolerancia a fallos** (`RF-02`, `RF-03`, `RF-04`, `RF-08`, `RF-09`, `CL-02`)
+- [x] **T5. Interceptor `seb hook post-tool` con extracción de `transcript.jsonl`, deduplicación por `step_index`, manejo de errores y tolerancia a fallos** (`004-RF-02`, `004-RF-03`, `004-RF-04`, `004-RF-08`, `004-RF-09`, `004-CL-02`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `payload/.agents/hooks/post-tool.sh`, `engine/cmd/seb/antigravity_telemetry_test.go`
-  - _Hecho cuando:_ Los comandos `CHK-05` y `CHK-06` devuelven exit code `0`.
+  - _Hecho cuando:_ Los comandos `004-CHK-05` y `004-CHK-06` devuelven exit code `0`.
 
-- [x] **T6. Interceptor `seb hook stop` para contabilizar pasos `PLANNER_RESPONSE` sin herramientas (`model_response`)** (`RF-10`, `CL-04`)
+- [x] **T6. Interceptor `seb hook stop` para contabilizar pasos `PLANNER_RESPONSE` sin herramientas (`model_response`)** (`004-RF-10`, `004-CL-04`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `payload/.agents/hooks/stop.sh`, `engine/cmd/seb/antigravity_telemetry_test.go`
-  - _Hecho cuando:_ El comando `CHK-07` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `004-CHK-07` devuelve exit code `0`.
 
-- [x] **T7. Aprovisionamiento y desinstalación de `.agents/hooks.json` en `install.sh` y `uninstall.sh`** (`RF-12`, `RNF-01`, `RNF-03`)
+- [x] **T7. Aprovisionamiento y desinstalación de `.agents/hooks.json` en `install.sh` y `uninstall.sh`** (`004-RF-12`, `004-RNF-01`, `004-RNF-03`)
   - _Archivos:_ `payload/.agents/hooks.json`, `install.sh`, `uninstall.sh`, `engine/cmd/seb/antigravity_telemetry_test.go`
-  - _Hecho cuando:_ El comando `CHK-08` devuelve exit code `0`.
+  - _Hecho cuando:_ El comando `004-CHK-08` devuelve exit code `0`.
 
-- [x] **T8. Compilación limpia sin CGO, análisis estático (`go vet`) y pase integral sin regresiones** (`RF-01` a `RF-13`)
+- [x] **T8. Compilación limpia sin CGO, análisis estático (`go vet`) y pase integral sin regresiones** (`004-RF-01` a `004-RF-13`)
   - _Archivos:_ `.seb/bin/seb`
-  - _Hecho cuando:_ Los comandos `CHK-98` y `CHK-99` devuelven exit code `0`.
+  - _Hecho cuando:_ Los comandos `004-CHK-98` y `004-CHK-99` devuelven exit code `0`.

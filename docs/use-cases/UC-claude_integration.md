@@ -1,6 +1,6 @@
 # UC-claude_integration: Integracion y Formato de Hooks para Claude (Claude Code y Claude Desktop)
 
-> **Trazabilidad SDD:** Derivado de la spec `specs/012_soporte_claude_spec.md` (Requisitos: `RF-01` a `RF-19`, `RNF-01` a `RNF-04`, `CL-01` a `CL-06`).
+> **Trazabilidad SDD:** Derivado de la spec `specs/012_soporte_claude_spec.md` (Requisitos: `012-RF-01` a `012-RF-19`, `012-RNF-01` a `012-RNF-04`, `012-CL-01` a `012-CL-06`).
 
 ## 1. Ficha de Intencion
 - **ID:** UC-claude_integration

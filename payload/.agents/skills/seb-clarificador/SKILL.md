@@ -42,6 +42,7 @@ Your mission is to audit a draft specification (`specs/<NNN>_<tarea>_spec.md`) a
        - Verify that every declared element is backed by at least one `RF-XX`, and that no `RF-XX` modifies a cataloged use case absent from the list.
        - Reject the list (as a direct question in Phase 2) if it contains `ninguno` combined with other elements, an element without backticks, a separator other than comma and space, duplicate elements (including repeated `nuevo`), or a `UC-*` not present in `docs/use-cases/README.md`.
      - _(Backward compatibility: do not retroactively require `Afecta-UC:` on closed historical specs `001` through `010`; specs declaring a single value remain valid)._
+   - **(7) Identificadores Prefijados (`<NNN>-<TIPO>-<NN>`):** Verify that every declared `HU`, `RF`, `RNF` and `CL` identifier uses the `<NNN>-` prefix matching the spec `Tarea ID` (e.g. `013-RF-05` in spec `013`). Raise an observation for any identifier without the `<NNN>-` prefix, with a prefix different from its `Tarea ID`, or duplicated.
 
 ### Phase 2: The Interrogation (Human in the Loop)
 
@@ -103,6 +104,7 @@ Once normal answers are received or a previously blocked spec is resumed:
 - It contains an unfulfilled `Contrato de Desbloqueo Requerido`.
 - It lacks a valid, backtick-wrapped `Afecta-UC:` header field (`UC-<dominio>_<accion>`, `nuevo`, or `ninguno`), references a `UC-*` not present in `docs/use-cases/README.md`, or contradicts its `RF-XX` requirements.
 - It declares an invalid `Afecta-UC:` list (`ninguno` combined, missing backticks, wrong separator, duplicate elements, nonexistent `UC-*`, or an element not backed by any `RF-XX`).
+- It declares an identifier without the `<NNN>-` prefix, with a prefix different from its `Tarea ID`, or duplicated.
 
 Once all conditions are fully met and strictly zero clarification tags remain:
 

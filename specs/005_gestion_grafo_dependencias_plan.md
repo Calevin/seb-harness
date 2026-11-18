@@ -34,11 +34,11 @@ Para resolverlo respetando la ley suprema de Go puro sin dependencias dinámicas
 
 | Archivo / Ruta | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica | Requisitos Cubiertos (`RF-XX`) |
 | :--- | :--- | :--- | :--- |
-| `engine/cmd/seb/main.go` | `MODIFICAR` | Extender struct `TaskLock`, parsear metadata de dependencias en specs, guardarraíl de dependencias en `cmdPlanLock`, estampado de `verified` y `commit_hash` en `cmdVerify`, y columnas de DAG en `cmdStatus`. | `RF-01` a `RF-07`, `RF-15`, `RNF-01` a `RNF-03`, `CL-01` a `CL-04` |
-| `engine/cmd/seb/dag_dependencies_test.go` | `CREAR` | Suite determinista de pruebas unitarias y de integración para parser de dependencias, guardarraíl en `plan-lock`, estampado en `verify`, detección de ciclos circulares, `status` y compatibilidad retroactiva. | `RF-01` a `RF-07`, `RF-15`, `RNF-01` a `RNF-03`, `CL-01` a `CL-04` |
-| `payload/.agents/skills/seb-clarificador/SKILL.md` | `MODIFICAR` | Incorporar fases formales para Detección de Brechas de Capacidad, Scope Fork, estado `BLOQUEADA_POR_DEPENDENCIA`, `Contrato de Desbloqueo (Satisfecho por Spec XXX)` y registro de deuda técnica en `MEMORY.md`. | `RF-08` a `RF-14`, `CL-05` |
-| `payload/.agents/skills/seb-planificador/SKILL.md` | `MODIFICAR` | Añadir verificación previa de prerrequisitos verificados en `seb.lock` como puerta de entrada a la planificación. | `RF-04` a `RF-07` |
-| `payload/.agents/rules/00-seb-harness.md` | `MODIFICAR` | Incorporar la regla de invariantes de precedencia del DAG y prohibición de planificar sobre tareas base insatisfechas. | `RF-04` a `RF-07` |
+| `engine/cmd/seb/main.go` | `MODIFICAR` | Extender struct `TaskLock`, parsear metadata de dependencias en specs, guardarraíl de dependencias en `cmdPlanLock`, estampado de `verified` y `commit_hash` en `cmdVerify`, y columnas de DAG en `cmdStatus`. | `005-RF-01` a `005-RF-07`, `005-RF-15`, `005-RNF-01` a `005-RNF-03`, `005-CL-01` a `005-CL-04` |
+| `engine/cmd/seb/dag_dependencies_test.go` | `CREAR` | Suite determinista de pruebas unitarias y de integración para parser de dependencias, guardarraíl en `plan-lock`, estampado en `verify`, detección de ciclos circulares, `status` y compatibilidad retroactiva. | `005-RF-01` a `005-RF-07`, `005-RF-15`, `005-RNF-01` a `005-RNF-03`, `005-CL-01` a `005-CL-04` |
+| `payload/.agents/skills/seb-clarificador/SKILL.md` | `MODIFICAR` | Incorporar fases formales para Detección de Brechas de Capacidad, Scope Fork, estado `BLOQUEADA_POR_DEPENDENCIA`, `Contrato de Desbloqueo (Satisfecho por Spec XXX)` y registro de deuda técnica en `MEMORY.md`. | `005-RF-08` a `005-RF-14`, `005-CL-05` |
+| `payload/.agents/skills/seb-planificador/SKILL.md` | `MODIFICAR` | Añadir verificación previa de prerrequisitos verificados en `seb.lock` como puerta de entrada a la planificación. | `005-RF-04` a `005-RF-07` |
+| `payload/.agents/rules/00-seb-harness.md` | `MODIFICAR` | Incorporar la regla de invariantes de precedencia del DAG y prohibición de planificar sobre tareas base insatisfechas. | `005-RF-04` a `005-RF-07` |
 
 ## 3. Contratos, Firmas y Modelo de Datos
 
@@ -87,19 +87,19 @@ func updateTaskLockVerification(canonicalName, commitHash string) error
 
 ## 5. Secuencia de Tareas Atómicas (TDD: Test en Rojo -> Código -> Test en Verde)
 
-- [x] **T1. Extensión de `TaskLock` y actualización de `seb verify` para estampar `verified: true` y `commit_hash` en `.seb/seb.lock`** (`RF-03`)
+- [x] **T1. Extensión de `TaskLock` y actualización de `seb verify` para estampar `verified: true` y `commit_hash` en `.seb/seb.lock`** (`005-RF-03`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/dag_dependencies_test.go`
   - _Detalle:_ Modificar struct `TaskLock`, implementar `updateTaskLockVerification` y llamarla en `cmdVerify` tras superar todos los checks con exit code 0.
-- [x] **T2. Parser determinista de metadata de dependencias en especificaciones (`parseSpecDependencies`)** (`RF-01`, `RF-02`, `CL-01`, `RNF-02`)
+- [x] **T2. Parser determinista de metadata de dependencias en especificaciones (`parseSpecDependencies`)** (`005-RF-01`, `005-RF-02`, `005-CL-01`, `005-RNF-02`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/dag_dependencies_test.go`
   - _Detalle:_ Parsear directivas `Dependencias:` y `Depends-On:`, ignorar `Ninguna`, normalizar identificadores y tolerar specs legacy sin el campo.
-- [x] **T3. Guardarraíl de dependencias directas y prevención de ciclos en `cmdPlanLock`** (`RF-04`, `RF-05`, `RF-06`, `RF-07`, `CL-02`, `CL-03`, `CL-04`, `RNF-01`, `RNF-03`)
+- [x] **T3. Guardarraíl de dependencias directas y prevención de ciclos en `cmdPlanLock`** (`005-RF-04`, `005-RF-05`, `005-RF-06`, `005-RF-07`, `005-CL-02`, `005-CL-03`, `005-CL-04`, `005-RNF-01`, `005-RNF-03`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/dag_dependencies_test.go`
   - _Detalle:_ Validar prerrequisitos directos en `seb.lock` (`verified == true`, `commit_hash != ""`), validar dependencias huérfanas o no verificadas, comprobar ciclos mutuos directos y abortar con código 1 ante infracciones.
-- [x] **T4. Observabilidad de dependencias y alertas en `seb status`** (`RF-15`)
+- [x] **T4. Observabilidad de dependencias y alertas en `seb status`** (`005-RF-15`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/dag_dependencies_test.go`
   - _Detalle:_ Actualizar tabla de `cmdStatus` para exponer la columna de dependencias directas y resaltar visualmente advertencias de bloqueo.
-- [x] **T5. Actualización de directivas en `seb-clarificador`, `seb-planificador` y `00-seb-harness.md`** (`RF-08` a `RF-14`, `RF-16`, `CL-05`)
+- [x] **T5. Actualización de directivas en `seb-clarificador`, `seb-planificador` y `00-seb-harness.md`** (`005-RF-08` a `005-RF-14`, `005-RF-16`, `005-CL-05`)
   - _Archivos:_ `payload/.agents/skills/seb-clarificador/SKILL.md`, `payload/.agents/skills/seb-planificador/SKILL.md`, `payload/.agents/rules/00-seb-harness.md`, `engine/cmd/seb/dag_dependencies_test.go`
   - _Detalle:_ Incorporar protocolo formal de Scope Fork, estado `BLOQUEADA_POR_DEPENDENCIA`, conservación histórica del contrato de desbloqueo, registro de deudas técnicas en `MEMORY.md` y verificar integridad estructural.
 - [x] **T6. Verificación determinista global y sellado de la tarea** (`RF-Stack`, `RF-GLOBAL`)

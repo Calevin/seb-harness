@@ -23,7 +23,7 @@ Para solucionar de raíz estos problemas respetando los principios de Go puro si
 3. **Extracción y Aislamiento de Comandos Complejos:**
    La extracción del comando se realiza identificando el primer y el último backtick (`` ` ``) presentes en la porción final de la fila. Todo lo que se encuentre contenido entre esas dos comillas invertidas es tratado como el comando de shell ejecutable literal, permitiendo operadores `|`, `||`, `&&`, comillas dobles y comillas simples sin alterar la división de columnas de la tabla.
 4. **Normalización de Requisitos e Integridad de Identificadores:**
-   La columna de requisitos se limpia extrayendo cada token alfanumérico separado por comas, eliminando espacios en blanco adyacentes (`strings.TrimSpace`) y uniéndolos con comas (`RNF-01,RNF-02`). La cadena normalizada se almacena en `CheckItem.ReqID` para su persistencia en la tabla SQLite `verifications` sin requerir modificaciones en el esquema existente.
+   La columna de requisitos se limpia extrayendo cada token alfanumérico separado por comas, eliminando espacios en blanco adyacentes (`strings.TrimSpace`) y uniéndolos con comas (`006-RNF-01,006-RNF-02`). La cadena normalizada se almacena en `CheckItem.ReqID` para su persistencia en la tabla SQLite `verifications` sin requerir modificaciones en el esquema existente.
 5. **Control de Unicidad de Check IDs:**
    Se introduce un mapa `seenIDs map[string]int` durante el escaneo para verificar que ningún `Check ID` se repita dentro del mismo archivo verificador. Si se detecta una colisión, se aborta con error detallando el identificador repetido y la línea afectada.
 
@@ -31,7 +31,7 @@ Para solucionar de raíz estos problemas respetando los principios de Go puro si
 
 | Archivo / Ruta                           | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica                                                                                                                                                                                                                                                             | Requisitos Cubiertos (`RF-XX`)                            |
 | :--------------------------------------- | :----------------------------- | :---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-------------------------------------------------------- |
-| `engine/cmd/seb/main.go`                 | `MODIFICAR`                    | Reemplazar `tableRowRegex` y refactorizar `parseVerifierFile` para incorporar seguimiento de bloques cercados, detección de filas candidatas `CHK-`, aislamiento de comandos entre backticks, normalización de requisitos, validación de unicidad y reporte de errores sintácticos. | `RF-01` a `RF-10`, `RNF-01` a `RNF-03`, `CL-01` a `CL-06` |
+| `engine/cmd/seb/main.go`                 | `MODIFICAR`                    | Reemplazar `tableRowRegex` y refactorizar `parseVerifierFile` para incorporar seguimiento de bloques cercados, detección de filas candidatas `CHK-`, aislamiento de comandos entre backticks, normalización de requisitos, validación de unicidad y reporte de errores sintácticos. | `006-RF-01` a `006-RF-10`, `006-RNF-01` a `006-RNF-03`, `006-CL-01` a `006-CL-06` |
 | `engine/cmd/seb/verifier_parser_test.go` | `CREAR`                        | Suite determinista de pruebas unitarias y de integración en Go que verifica el soporte de requisitos heterogéneos, anti-silent-drop, aislamiento de operadores de shell, unicidad de IDs, inmunidad contextual y compatibilidad retrospectiva con specs 001-005.                    | `RF-01` a `RF-10`, `RNF-01` a `RNF-03`, `CL-01` a `CL-06` |
 
 ## 3. Contratos, Firmas y Modelo de Datos
@@ -78,28 +78,28 @@ func parseVerifierFile(path string) ([]CheckItem, error)
 - **Decisión 2: Error bloqueante inmediato (Anti-Silent-Drop) en lugar de advertencias no bloqueantes.**
   - _Justificación:_ En un arnés de aseguramiento determinista de calidad, una fila `CHK-` mal escrita indica la intención humana de ejecutar una prueba. Ignorarla o emitir un warning que permita continuar con `exit code 0` es un vector crítico de falsos positivos y reward-hacking. Todo error sintáctico en un control debe detener inmediatamente el sellado y la verificación.
 - **Decisión 3: Normalización de requisitos en memoria preservando el esquema SQLite existente.**
-  - _Justificación:_ Guardar listas normalizadas como `RNF-01,RNF-02` en el campo `req_id TEXT` de la tabla `verifications` permite trazabilidad directa sin necesidad de migraciones complejas de SQLite ni roturas en los consumidores de telemetría pasiva.
+  - _Justificación:_ Guardar listas normalizadas como `006-RNF-01,006-RNF-02` en el campo `req_id TEXT` de la tabla `verifications` permite trazabilidad directa sin necesidad de migraciones complejas de SQLite ni roturas en los consumidores de telemetría pasiva.
 
 ## 5. Secuencia de Tareas Atómicas (TDD: Test en Rojo -> Código -> Test en Verde)
 
-- [x] **T1. Suite de pruebas deterministas para requisitos heterogéneos y normalización de listas** (`RF-01`, `RF-02`, `CL-01`)
+- [x] **T1. Suite de pruebas deterministas para requisitos heterogéneos y normalización de listas** (`006-RF-01`, `006-RF-02`, `006-CL-01`)
   - _Archivos:_ `engine/cmd/seb/verifier_parser_test.go`
-  - _Detalle:_ Crear pruebas que reproduzcan las filas del reporte (`CHK-09` con `RNF-02`, `CHK-98` con `RNF-01, RNF-02` con espacios, `CHK-99` con `GLOBAL`, `RF-Stack`), verificando que se extraigan correctamente y los requisitos se normalicen sin espacios adyacentes.
-- [x] **T2. Refactorización de `parseVerifierFile` con aislamiento de comandos y normalización** (`RF-01`, `RF-02`, `RF-04`, `CL-01`, `CL-02`)
+  - _Detalle:_ Crear pruebas que reproduzcan las filas del reporte (`006-CHK-09` con `006-RNF-02`, `006-CHK-98` con `006-RNF-01, 006-RNF-02` con espacios, `006-CHK-99` con `GLOBAL`, `RF-Stack`), verificando que se extraigan correctamente y los requisitos se normalicen sin espacios adyacentes.
+- [x] **T2. Refactorización de `parseVerifierFile` con aislamiento de comandos y normalización** (`006-RF-01`, `006-RF-02`, `006-RF-04`, `006-CL-01`, `006-CL-02`)
   - _Archivos:_ `engine/cmd/seb/main.go`
   - _Detalle:_ Implementar la lógica de extracción de columnas, normalización de requisitos y aislamiento de comandos entre backticks externos tolerando pipes y operadores de shell.
-- [x] **T3. Detección y rechazo bloqueante de filas candidatas malformadas (Anti-Silent-Drop)** (`RF-03`, `RF-05`, `CL-04`, `CL-05`)
+- [x] **T3. Detección y rechazo bloqueante de filas candidatas malformadas (Anti-Silent-Drop)** (`006-RF-03`, `006-RF-05`, `006-CL-04`, `006-CL-05`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/verifier_parser_test.go`
   - _Detalle:_ Implementar la detección de líneas candidatas (`^\s*\|\s*CHK-`) y lanzar errores sintácticos si faltan columnas, faltan backticks o el comando está vacío. Comprobar que `plan-lock` y `verify` aborten con código 1.
-- [x] **T4. Validación de unicidad de Check IDs y control de duplicados** (`RF-06`, `CL-04`)
+- [x] **T4. Validación de unicidad de Check IDs y control de duplicados** (`006-RF-06`, `006-CL-04`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/verifier_parser_test.go`
   - _Detalle:_ Incorporar mapa de IDs observados y retornar error si un `CHK-XX` se repite dentro del mismo archivo.
-- [x] **T5. Inmunidad contextual a bloques de código cercados y líneas no candidatas** (`RF-07`, `CL-03`)
+- [x] **T5. Inmunidad contextual a bloques de código cercados y líneas no candidatas** (`006-RF-07`, `006-CL-03`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/verifier_parser_test.go`
   - _Detalle:_ Ignorar líneas dentro de bloques cercados (` ``` `), encabezados de tabla, separadores y comentarios sin disparar errores.
-- [x] **T6. Validación de integridad en `cmdPlanLock` y `cmdVerify` y ausencia de controles** (`RF-08`, `RF-09`, `RF-10`, `CL-06`)
+- [x] **T6. Validación de integridad en `cmdPlanLock` y `cmdVerify` y ausencia de controles** (`006-RF-08`, `006-RF-09`, `006-RF-10`, `006-CL-06`)
   - _Archivos:_ `engine/cmd/seb/main.go`, `engine/cmd/seb/verifier_parser_test.go`
   - _Detalle:_ Asegurar que `plan-lock` impida sellar si el verificador tiene errores o carece de controles, y que `verify` exija 100% de controles en `[PASA]`.
-- [x] **T7. Validación de requisitos no funcionales, rendimiento y compatibilidad retrospectiva** (`RNF-01`, `RNF-02`, `RNF-03`)
+- [x] **T7. Validación de requisitos no funcionales, rendimiento y compatibilidad retrospectiva** (`006-RNF-01`, `006-RNF-02`, `006-RNF-03`)
   - _Archivos:_ `engine/cmd/seb/verifier_parser_test.go`
   - _Detalle:_ Test que verifica el parseo exitoso de `specs/001_*` a `specs/005_*` en `< 10ms` y valida que la compilación sin CGO y suite global no presenten regresiones.

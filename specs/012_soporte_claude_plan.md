@@ -22,16 +22,16 @@ El diseño separa estrictamente la **lógica de decisión del arnés** (reglas d
 
 | Archivo / Ruta | Acción (`CREAR` / `MODIFICAR`) | Responsabilidad Técnica | Requisitos Cubiertos (`RF-XX`) |
 | :--- | :--- | :--- | :--- |
-| `engine/cmd/seb/hook_claude.go` | `CREAR` | Resolución de formato, structs de Claude, normalización de herramientas, `NormalizedHookInput`, `HookDecision` y serializadores puros | `RF-06` a `RF-15`, `RNF-01` a `RNF-03`, `CL-01`, `CL-05` |
-| `engine/cmd/seb/main.go` | `MODIFICAR` | Parseo de `--format` en `cmdHook` y delegación de `processHookPreTool/PostTool/Stop` al núcleo desacoplado manteniendo compatibilidad exacta | `RF-06` a `RF-15`, `RNF-02`, `CL-01` |
-| `engine/cmd/seb/claude_hook_test.go` | `CREAR` | Tests unitarios de selección de formato, regresión Antigravity, contratos Claude por evento y latencia `<10ms` | `RF-06` a `RF-15`, `RNF-01`, `RNF-02`, `CL-01`, `CL-05` |
-| `payload/.agents/hooks/pre-tool.sh` | `MODIFICAR` | Reenvío `"$@"` a `seb hook pre-tool "$@"` y fallback compatible con `--format claude` | `RF-16`, `CL-04` |
-| `payload/.agents/hooks/post-tool.sh` | `MODIFICAR` | Reenvío `"$@"` a `seb hook post-tool "$@"` y fallback compatible con `--format claude` | `RF-16`, `CL-04` |
-| `payload/.agents/hooks/stop.sh` | `MODIFICAR` | Reenvío `"$@"` a `seb hook stop "$@"` y fallback compatible con `--format claude` | `RF-16`, `CL-04` |
-| `install.sh` | `MODIFICAR` | Creación no destructiva de symlinks `.claude/{hooks,rules,skills}` y fusión idempotente de `.claude/settings.json` | `RF-01` a `RF-05`, `RNF-04`, `CL-02`, `CL-03` |
-| `uninstall.sh` | `MODIFICAR` | Remoción quirúrgica de symlinks hacia `.agents/`, limpieza de hooks de `seb` en `.claude/settings.json` y soporte `--dry-run` | `RF-17`, `RF-18`, `CL-03`, `CL-06` |
-| `engine/cmd/seb/claude_install_test.go` | `CREAR` | Tests de integración de scripts plantilla, `install.sh` y `uninstall.sh` | `RF-01` a `RF-05`, `RF-16` a `RF-18`, `RNF-04`, `CL-02` a `CL-04`, `CL-06` |
-| `README.md` | `MODIFICAR` | Documentación de matriz de agentes soportados (`Antigravity`, `Claude Code`, `Claude Desktop`), uso de `--format` y validación end-to-end | `RF-19` |
+| `engine/cmd/seb/hook_claude.go` | `CREAR` | Resolución de formato, structs de Claude, normalización de herramientas, `NormalizedHookInput`, `HookDecision` y serializadores puros | `012-RF-06` a `012-RF-15`, `012-RNF-01` a `012-RNF-03`, `012-CL-01`, `012-CL-05` |
+| `engine/cmd/seb/main.go` | `MODIFICAR` | Parseo de `--format` en `cmdHook` y delegación de `processHookPreTool/PostTool/Stop` al núcleo desacoplado manteniendo compatibilidad exacta | `012-RF-06` a `012-RF-15`, `012-RNF-02`, `012-CL-01` |
+| `engine/cmd/seb/claude_hook_test.go` | `CREAR` | Tests unitarios de selección de formato, regresión Antigravity, contratos Claude por evento y latencia `<10ms` | `012-RF-06` a `012-RF-15`, `012-RNF-01`, `012-RNF-02`, `012-CL-01`, `012-CL-05` |
+| `payload/.agents/hooks/pre-tool.sh` | `MODIFICAR` | Reenvío `"$@"` a `seb hook pre-tool "$@"` y fallback compatible con `--format claude` | `012-RF-16`, `012-CL-04` |
+| `payload/.agents/hooks/post-tool.sh` | `MODIFICAR` | Reenvío `"$@"` a `seb hook post-tool "$@"` y fallback compatible con `--format claude` | `012-RF-16`, `012-CL-04` |
+| `payload/.agents/hooks/stop.sh` | `MODIFICAR` | Reenvío `"$@"` a `seb hook stop "$@"` y fallback compatible con `--format claude` | `012-RF-16`, `012-CL-04` |
+| `install.sh` | `MODIFICAR` | Creación no destructiva de symlinks `.claude/{hooks,rules,skills}` y fusión idempotente de `.claude/settings.json` | `012-RF-01` a `012-RF-05`, `012-RNF-04`, `012-CL-02`, `012-CL-03` |
+| `uninstall.sh` | `MODIFICAR` | Remoción quirúrgica de symlinks hacia `.agents/`, limpieza de hooks de `seb` en `.claude/settings.json` y soporte `--dry-run` | `012-RF-17`, `012-RF-18`, `012-CL-03`, `012-CL-06` |
+| `engine/cmd/seb/claude_install_test.go` | `CREAR` | Tests de integración de scripts plantilla, `install.sh` y `uninstall.sh` | `012-RF-01` a `012-RF-05`, `012-RF-16` a `012-RF-18`, `012-RNF-04`, `012-CL-02` a `012-CL-04`, `012-CL-06` |
+| `README.md` | `MODIFICAR` | Documentación de matriz de agentes soportados (`Antigravity`, `Claude Code`, `Claude Desktop`), uso de `--format` y validación end-to-end | `012-RF-19` |
 
 ## 3. Contratos, Firmas y Modelo de Datos
 
@@ -132,30 +132,30 @@ Estructura agregada de forma no destructiva por `install.sh`:
 - **Decisión 2: Emisión de salida vacía con `exit 0` en `PreToolUse` (`allow`) para Claude Code.**
   - _Alternativa descartada:_ Emitir `"permissionDecision": "allow"`. Según el contrato vigente de Claude Code, `"allow"` explícito omite los prompts interactivos de confirmación configurados por el usuario, mientras que `exit 0` sin salida permite continuar la evaluación estándar de Claude sin relajar sus controles propios.
 - **Decisión 3: Fusión/limpieza de `.claude/settings.json` con parser JSON estructurado en `install.sh` y `uninstall.sh`.**
-  - _Alternativa descartada:_ Manipulación textual con `sed`/`awk` o plantillas estáticas. Se descartó porque rompería configuraciones previas del usuario o fallaría silenciosamente ante JSON inválido (`CL-02`, `CL-03`).
+  - _Alternativa descartada:_ Manipulación textual con `sed`/`awk` o plantillas estáticas. Se descartó porque rompería configuraciones previas del usuario o fallaría silenciosamente ante JSON inválido (`012-CL-02`, `012-CL-03`).
 
 ## 5. Secuencia de Tareas Atómicas (TDD: Test en Rojo -> Código -> Test en Verde)
 
 _Regla para el Agente Implementador: Ejecuta UNA tarea a la vez en orden de dependencia. Primero escribe el test y verifica que falle (Rojo), luego escribe el código mínimo hasta pasar (Verde)._
 
-- [ ] **T1. Resolución explícita de formato (`--format` / `SEB_HOOK_FORMAT`) y no regresión Antigravity** (`RF-06`, `RF-07`, `RF-08`, `RNF-02`, `CL-01`)
+- [ ] **T1. Resolución explícita de formato (`--format` / `SEB_HOOK_FORMAT`) y no regresión Antigravity** (`012-RF-06`, `012-RF-07`, `012-RF-08`, `012-RNF-02`, `012-CL-01`)
   - _Archivos:_ `engine/cmd/seb/claude_hook_test.go`, `engine/cmd/seb/hook_claude.go`, `engine/cmd/seb/main.go`
-  - _Hecho cuando:_ `CHK-01` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
-- [ ] **T2. Parseo de payload Claude, normalización de herramientas y serializadores por evento** (`RF-09` a `RF-15`, `CL-05`)
+  - _Hecho cuando:_ `012-CHK-01` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
+- [ ] **T2. Parseo de payload Claude, normalización de herramientas y serializadores por evento** (`012-RF-09` a `012-RF-15`, `012-CL-05`)
   - _Archivos:_ `engine/cmd/seb/claude_hook_test.go`, `engine/cmd/seb/hook_claude.go`, `engine/cmd/seb/main.go`
-  - _Hecho cuando:_ `CHK-02` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
-- [ ] **T3. Presupuesto de latencia `<10ms` en evaluación Claude** (`RNF-01`)
+  - _Hecho cuando:_ `012-CHK-02` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
+- [ ] **T3. Presupuesto de latencia `<10ms` en evaluación Claude** (`012-RNF-01`)
   - _Archivos:_ `engine/cmd/seb/claude_hook_test.go`
-  - _Hecho cuando:_ `CHK-07` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
-- [ ] **T4. Reenvío de argumentos y fallback seguro en `.agents/hooks/*.sh`** (`RF-16`, `CL-04`)
+  - _Hecho cuando:_ `012-CHK-07` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
+- [ ] **T4. Reenvío de argumentos y fallback seguro en `.agents/hooks/*.sh`** (`012-RF-16`, `012-CL-04`)
   - _Archivos:_ `engine/cmd/seb/claude_install_test.go`, `payload/.agents/hooks/pre-tool.sh`, `payload/.agents/hooks/post-tool.sh`, `payload/.agents/hooks/stop.sh`
-  - _Hecho cuando:_ `CHK-03` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
-- [ ] **T5. Aprovisionamiento idempotente `.claude/` y fusión de `settings.json` en `install.sh`** (`RF-01` a `RF-05`, `RNF-04`, `CL-02`, `CL-03`)
+  - _Hecho cuando:_ `012-CHK-03` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
+- [ ] **T5. Aprovisionamiento idempotente `.claude/` y fusión de `settings.json` en `install.sh`** (`012-RF-01` a `012-RF-05`, `012-RNF-04`, `012-CL-02`, `012-CL-03`)
   - _Archivos:_ `engine/cmd/seb/claude_install_test.go`, `install.sh`
-  - _Hecho cuando:_ `CHK-04` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
-- [ ] **T6. Reversión quirúrgica de `.claude/` y `settings.json` en `uninstall.sh`** (`RF-17`, `RF-18`, `CL-03`, `CL-06`)
+  - _Hecho cuando:_ `012-CHK-04` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
+- [ ] **T6. Reversión quirúrgica de `.claude/` y `settings.json` en `uninstall.sh`** (`012-RF-17`, `012-RF-18`, `012-CL-03`, `012-CL-06`)
   - _Archivos:_ `engine/cmd/seb/claude_install_test.go`, `uninstall.sh`
-  - _Hecho cuando:_ `CHK-05` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
-- [ ] **T7. Documentación de matriz de agentes y verificación end-to-end en `README.md`** (`RF-19`)
+  - _Hecho cuando:_ `012-CHK-05` de `specs/012_soporte_claude_verificador.md` devuelve exit code `0`.
+- [ ] **T7. Documentación de matriz de agentes y verificación end-to-end en `README.md`** (`012-RF-19`)
   - _Archivos:_ `README.md`
-  - _Hecho cuando:_ `CHK-06`, `CHK-98` y `CHK-99` de `specs/012_soporte_claude_verificador.md` devuelven exit code `0`.
+  - _Hecho cuando:_ `012-CHK-06`, `012-CHK-98` y `012-CHK-99` de `specs/012_soporte_claude_verificador.md` devuelven exit code `0`.

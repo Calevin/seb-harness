@@ -1,6 +1,6 @@
 # UC-task_abort_and_purge: Aborto Formal y Purga Atomica de Tareas
 
-> **Trazabilidad SDD:** Derivado de la spec `specs/009_aborto_tarea_spec.md` (Requisitos: `RF-01` a `RF-14`, `RNF-01`, `RNF-02`, `RNF-03`, `RNF-04`).
+> **Trazabilidad SDD:** Derivado de la spec `specs/009_aborto_tarea_spec.md` (Requisitos: `009-RF-01` a `009-RF-14`, `009-RNF-01`, `009-RNF-02`, `009-RNF-03`, `009-RNF-04`).
 
 ## 1. Ficha de Intencion
 - **ID:** UC-task_abort_and_purge
@@ -9,9 +9,9 @@
 - **Precondiciones:**
   - La tarea objetivo debe existir en la base de datos local SQLite (`tasks`) o como especificacion fisica en `specs/<NNN>_<tarea>_spec.md`.
 - **Invariantes de Negocio:**
-  - Ninguna tarea formalmente verificada (`VERIFIED` o con `verified: true` y `commit_hash` en `.seb/seb.lock`) ni ninguna tarea de la cual dependan otras especificaciones en `specs/` puede ser abortada o purgada sin la bandera explicita `--force` (`-f`) (`RF-12`, `RF-13`).
-  - El **Aborto Formal** (por defecto) conserva intactos los registros de telemetria y costos en `agent_actions`, actualiza el archivo spec a `Estado: ABORTADA` y marca `verified: false, aborted: true` en `.seb/seb.lock` (`RF-01`, `RF-02`, `RF-05`).
-  - La **Purga Atomica** (`--purge`) elimina transaccionalmente los registros en SQLite (`verifications`, `agent_actions`, `tasks`), borra fisicamente la triada en `specs/` y remueve la clave de `.seb/seb.lock`, liberando el ID secuencial si era el mayor (`RF-06` a `RF-09`).
+  - Ninguna tarea formalmente verificada (`VERIFIED` o con `verified: true` y `commit_hash` en `.seb/seb.lock`) ni ninguna tarea de la cual dependan otras especificaciones en `specs/` puede ser abortada o purgada sin la bandera explicita `--force` (`-f`) (`009-RF-12`, `009-RF-13`).
+  - El **Aborto Formal** (por defecto) conserva intactos los registros de telemetria y costos en `agent_actions`, actualiza el archivo spec a `Estado: ABORTADA` y marca `verified: false, aborted: true` en `.seb/seb.lock` (`009-RF-01`, `009-RF-02`, `009-RF-05`).
+  - La **Purga Atomica** (`--purge`) elimina transaccionalmente los registros en SQLite (`verifications`, `agent_actions`, `tasks`), borra fisicamente la triada en `specs/` y remueve la clave de `.seb/seb.lock`, liberando el ID secuencial si era el mayor (`009-RF-06` a `009-RF-09`).
 
 ## 2. Diagrama de Interaccion del Sistema (SSD)
 ```mermaid
@@ -60,10 +60,10 @@ stateDiagram-v2
 ## 4. Caminos Alternativos y Catalogo de Errores
 | Error Code | Causa Raiz | Respuesta / Efecto |
 | :--- | :--- | :--- |
-| `TASK_NOT_FOUND` | El identificador suministrado no coincide con ninguna tarea | Mensaje `[seb-harness ERROR] tarea no encontrada` en `stderr` y `exit code 1` (`RF-10`) |
-| `AMBIGUOUS_TASK_QUERY` | El nombre coincide con multiples tareas en distintas secuencias | Listado de candidatos en `stderr` y `exit code 1` (`RF-11`) |
-| `SECURITY_BLOCK_VERIFIED_TASK` | Intento de abortar o purgar una tarea `VERIFIED` sin `--force` | Mensaje `BLOQUEO DE SEGURIDAD: La tarea '...' ya esta formalmente verificada` y `exit code 1` (`RF-13`) |
-| `SECURITY_BLOCK_HAS_DEPENDENTS` | Otras especificaciones en `specs/` declaran depender de la tarea objetivo y no se paso `--force` | Mensaje `BLOQUEO DE SEGURIDAD: Las siguientes tareas dependen de '...'` y `exit code 1` (`RF-12`) |
+| `TASK_NOT_FOUND` | El identificador suministrado no coincide con ninguna tarea | Mensaje `[seb-harness ERROR] tarea no encontrada` en `stderr` y `exit code 1` (`009-RF-10`) |
+| `AMBIGUOUS_TASK_QUERY` | El nombre coincide con multiples tareas en distintas secuencias | Listado de candidatos en `stderr` y `exit code 1` (`009-RF-11`) |
+| `SECURITY_BLOCK_VERIFIED_TASK` | Intento de abortar o purgar una tarea `VERIFIED` sin `--force` | Mensaje `BLOQUEO DE SEGURIDAD: La tarea '...' ya esta formalmente verificada` y `exit code 1` (`009-RF-13`) |
+| `SECURITY_BLOCK_HAS_DEPENDENTS` | Otras especificaciones en `specs/` declaran depender de la tarea objetivo y no se paso `--force` | Mensaje `BLOQUEO DE SEGURIDAD: Las siguientes tareas dependen de '...'` y `exit code 1` (`009-RF-12`) |
 | `UNKNOWN_ABORT_FLAG` | Bandera desconocida o multiples identificadores posicionales | Mensaje de error de sintaxis en `stderr` y `exit code 1` |
 
 ## 5. Postcondiciones y Efectos Secundarios
