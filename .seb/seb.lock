@@ -1,0 +1,82 @@
+{
+  "tasks": {
+    "001_registro_telemetria_acciones": {
+      "spec_hash": "0fd2a863bf58eb83598a32234d6b59b5496f62e569df5f741ef485d444b02810",
+      "verifier_hash": "fadeb6daf637879ef4c6a3d6f954e63afc63004455621b26583a9246b8e2d2ec",
+      "verified": true,
+      "commit_hash": "160c7b9"
+    },
+    "002_prefijo_secuencial_artefactos": {
+      "spec_hash": "7a4e3aab125817da9c36fd3c7a772a45771cd5a41311a48eb4dc53da2403920c",
+      "verifier_hash": "bcd42665b31c8b3f1f4287532663b329f38a33fde6d39539c69a83234c481fad",
+      "verified": true,
+      "commit_hash": "bd5b30b"
+    },
+    "003_desinstalacion_arnes": {
+      "spec_hash": "4aa3bf94b15f15d12f2a06631012d37028d6b0b730e6e08ed5476298ed3541ca",
+      "verifier_hash": "dd49a1deef52417512b6676ac60137b05c303a00935a7a463cf4af5880a6a703",
+      "verified": true,
+      "commit_hash": "01a0024"
+    },
+    "004_captura_telemetria_antigravity": {
+      "spec_hash": "79f1ead5bac1f652d8be8e42a1bc1c95985e4db989da353c87e0b6d6983dfb49",
+      "verifier_hash": "c75f7d6af09f843d4b64b00f57a570662d9a4189b2c95389889e655bf98022b3",
+      "verified": true,
+      "commit_hash": "e6e89f9"
+    },
+    "005_gestion_grafo_dependencias": {
+      "spec_hash": "a303d50136310be721ea3bcf066ed036822aca7d79fb41bff50c3575f0ae09d3",
+      "verifier_hash": "fd7529072458a281fe44f2cfb07901deb74ef176d177045f6593c7dc9494b826",
+      "verified": true,
+      "commit_hash": "e6e89f9"
+    },
+    "006_parser_tabla_verificacion": {
+      "spec_hash": "bfdc68e2fdf0336c57ff875cbe9695082f67694d9d0fa6e0557cb4da84c3a569",
+      "verifier_hash": "28f4841fe93d09f5e41cb950373e2df683b47dfa47a43baff8a6a127fa4a0ee5",
+      "verified": true,
+      "commit_hash": "0528c64"
+    },
+    "007_migracion_contexto_brownfield": {
+      "spec_hash": "88517a37b2d89eaa421c17301e58f3f716316b9e6dd6742858b13cd89623b61d",
+      "verifier_hash": "7a313e09f740f210cc3ee37eb33cada34953ef73e3c2589a6528bf034e782372",
+      "verified": true,
+      "commit_hash": "1aa0080"
+    },
+    "008_estado_sesion_determinista": {
+      "spec_hash": "050132327f7c4a5ede58b236a9a0bd4f2625bb212ad61b87db6b482943fbaa47",
+      "verifier_hash": "1044ca0a3c47b7f5935ddb090887230c3c3b41bee680ee5f237a3ff89cbebfea",
+      "verified": true,
+      "commit_hash": "e93f70c"
+    },
+    "009_aborto_tarea": {
+      "spec_hash": "4dad72b55a4bed3509bc24382f9ee98f38d0dd52d8b4fca131871c038a79f51b",
+      "verifier_hash": "eca393ca4f9d7a89ddf218e0c4a96db29b1681b6c6b4438b1fc18b7d81f7d89f",
+      "verified": true,
+      "commit_hash": "438bf98"
+    },
+    "010_integracion_documentador": {
+      "spec_hash": "4c54d1cb8b900e96ee2955a7f748d3f321f2ada4502f2f6f33f1057e224059e8",
+      "verifier_hash": "77cddbe24db8d51e5d22f19e8fb83c513cdfe3b6888e0ddcfa9f22ca634deaf2",
+      "verified": true,
+      "commit_hash": "fc38a2e"
+    },
+    "011_gobernanza_afecta_uc": {
+      "spec_hash": "e26bd60609e85f4e62cf7c26e7e3a9dbaa82162a6e3757a1bd3c7c055ff76012",
+      "verifier_hash": "d1260ca4951fc5596265acdc32169fbe5c0456927be9e7d22b86c7a96a924b10",
+      "verified": true,
+      "commit_hash": "851cff2"
+    },
+    "012_soporte_claude": {
+      "spec_hash": "7b185d039d22c8f3999708897f60ed150df877d1d7f2d024fb9213ec7f62a52c",
+      "verifier_hash": "55987ab84f98c27fbe3ec25eee5e73b2f1e6bafa542062ca3b032beae6aaf4da",
+      "verified": true,
+      "commit_hash": "2df382c"
+    },
+    "014_afecta_uc_multiple": {
+      "spec_hash": "ce8ed80e3546d13121d8d104a2de9e548200a0369167d1358deb38c5bfb84687",
+      "verifier_hash": "ec603cc2daa98a428863fd7926e0677c25518504798cbdf7de9ae75d94e6d85f",
+      "verified": true,
+      "commit_hash": "59856f8"
+    }
+  }
+}
