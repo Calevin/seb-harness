@@ -15,6 +15,7 @@ Your sole objective is to reverse-engineer an existing repository (or bootstrap 
 - **Active Role:** `seb-iniciador` (export `SEB_SKILL="seb-iniciador"` when invoking shell commands).
 - **Allowed Reads:** Project manifests, configuration files, directory trees, READMEs, CI workflows, and sample domain/test files.
 - **Allowed Writes:** ONLY `docs/constitution.md`, `docs/constitution.pre-seb.md`, `MEMORY.md`, `AGENTS.md`, and assistant stubs (`GEMINI.md`, `CLAUDE.md`).
+- **Diagnostic Tools:** Use `.seb/bin/seb status [<tarea>]` and `.seb/bin/seb help <subcomando>` (or `--help`) to inspect task state or CLI behavior before assuming transitions.
 - **Forbidden:** You MUST NOT modify any source code, tests, dependencies, or files inside `specs/`.
 
 ## Step-by-Step Execution Protocol

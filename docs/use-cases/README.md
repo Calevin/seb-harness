@@ -18,6 +18,7 @@
 | [UC-documentation_functional_generation](./UC-documentation_functional_generation.md) | Documentacion Funcional | Integracion de la Fase 6 (`seb-documentador`), estructura estandar de casos de uso con diagramas Mermaid, guardarrailes de escritura, generacion de `AGENTS.md.patch.md` y procesamiento de listas multi-UC en `Afecta-UC:`, con citas obligatorias por identificador prefijado. | `specs/010_integracion_documentador_spec.md` | `specs/014_afecta_uc_multiple_spec.md`, `specs/013_identificadores_unicos_requisitos_spec.md` | Verificado |
 | [UC-claude_integration](./UC-claude_integration.md) | Integracion Multi-Agente | Aprovisionamiento idempotente en `.claude/` (`install.sh`/`uninstall.sh`), selector `--format claude`, normalizacion de herramientas y contrato de salida para Claude Code y Claude Desktop. | `specs/012_soporte_claude_spec.md` | - | Verificado |
 | [UC-harness_oneoff_migration](./UC-harness_oneoff_migration.md) | Ciclo de Vida del Arnes | Operaciones one-off de actualizacion identificadas por ID de spec, rol `migrador` activado solo por el humano y migracion auditada de identificadores heredados a `<NNN>-<TIPO>-<NN>` con resellado de `seb.lock`, rollback e idempotencia. | `specs/013_identificadores_unicos_requisitos_spec.md` | - | Verificado |
+| [UC-cli_observability_introspection](./UC-cli_observability_introspection.md) | Observabilidad e Introspeccion | Vista unificada multi-fuente en `seb status` (`specs/`, `.seb/seb.lock` y SQLite opcional en lectura pura), deteccion de desfases, siguiente paso esperado, `--compact`/`--json`, ayuda bajo demanda `seb help`/`--help` y mapa de estados en `payload/`. | `specs/016_observabilidad_introspeccion_cli_spec.md` | - | Verificado |
 
 ## Mapa de Relaciones por Dominio
 
@@ -42,5 +43,7 @@ flowchart LR
         UC008 --> UC013["UC-harness_oneoff_migration (Spec 013)"]
         UC002 --> UC013
         UC006 --> UC013
+        UC005 --> UC016["UC-cli_observability_introspection (Spec 016)"]
+        UC008 --> UC016
     end
 ```

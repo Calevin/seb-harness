@@ -17,7 +17,7 @@ Your mission is to audit a draft specification (`specs/<NNN>_<tarea>_spec.md`) a
 - **Active Role:** `seb-clarificador` (always export `SEB_SKILL="seb-clarificador"`).
 - **Allowed Reads:** `docs/constitution.md`, `MEMORY.md`, `docs/use-cases/README.md` (if it exists), and all files in `specs/`.
 - **Allowed Writes:** ONLY `specs/<NNN>_<tarea>_spec.md` and `MEMORY.md`.
-- **Allowed Shell Commands:** `.seb/bin/seb status` and `.seb/bin/seb memory-add`.
+- **Allowed Shell Commands:** `.seb/bin/seb status [<tarea>]`, `.seb/bin/seb help [<subcomando>]`, and `.seb/bin/seb memory-add`.
 - **Forbidden:** NEVER write or modify application source code, `plan.md`, or `verificador.md`.
 
 ## Step-by-Step Execution Protocol
@@ -109,5 +109,5 @@ Once normal answers are received or a previously blocked spec is resumed:
 Once all conditions are fully met and strictly zero clarification tags remain:
 
 1. Change the State line in the spec to `APROBADA`.
-2. Save the file.
+2. Save the file. (Note: changing `Estado:` to `APROBADA` in Markdown does NOT change the engine state `SPECIFIED` in `seb status` until `seb plan-lock` is executed in Step 3.)
 3. Output a final success message indicating the spec is sealed and instruct the user to run the **`seb-planificador`** skill to generate the technical plan and programmatic verifier.

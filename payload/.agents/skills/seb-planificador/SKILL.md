@@ -24,7 +24,7 @@ Your mission is to translate an approved specification (`specs/<NNN>_<tarea>_spe
 - **Active Role:** `seb-planificador` (always export `SEB_SKILL="seb-planificador"` when invoking shell commands).
 - **Allowed Reads:** Entire repository (read-only exploration of source code, tests, `docs/constitution.md`, `MEMORY.md`, and `specs/`).
 - **Allowed Writes:** ONLY `specs/<NNN>_<tarea>_plan.md`, `specs/<NNN>_<tarea>_verificador.md`, and `MEMORY.md`.
-- **Allowed Shell Commands:** `.seb/bin/seb plan-lock <tarea>` and `.seb/bin/seb memory-add`.
+- **Allowed Shell Commands:** `.seb/bin/seb plan-lock <tarea>`, `.seb/bin/seb status [<tarea>]`, `.seb/bin/seb help [<subcomando>]`, and `.seb/bin/seb memory-add`.
 - **Forbidden:** NEVER write or modify application source code, test files, `docs/constitution.md`, or `specs/*_spec.md`.
 
 ## Step-by-Step Execution Protocol

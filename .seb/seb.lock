@@ -89,6 +89,12 @@
       "verifier_hash": "f1eb4962a54e08ba98b0b65be768716a055d5615bac01ee86033af866e3fa876",
       "verified": true,
       "commit_hash": "799eb05"
+    },
+    "016_observabilidad_introspeccion_cli": {
+      "spec_hash": "1a41b49fced4ce9b9df18627427d85479b8090c9a8014634580c4a21202128a8",
+      "verifier_hash": "70a9272ad761f5fb92f479ee1fd5f76b8f5de691df602fe4f0565e8a44270657",
+      "verified": true,
+      "commit_hash": "4f0845b"
     }
   }
 }

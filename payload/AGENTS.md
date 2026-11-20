@@ -37,12 +37,24 @@ Tienes terminantemente prohibido violar los permisos de tu rol activo:
 *Nota de integridad*: Durante la implementación está estrictamente prohibido modificar, comentar o debilitar assertions en `specs/<NNN>_<tarea>_verificador.md` o en tests existentes para forzar un resultado exitoso (*reward-hacking*). Si un test o requisito es inviable técnicamente, detén la implementación, documéntalo en `MEMORY.md` y solicita volver a `seb-clarificador` o `seb-planificador`.
 
 ## 4. Herramientas Nativas del Harness (`.seb/bin/seb`)
-Delega las operaciones de control, numeración, verificación y telemetría en el binario del harness:
+Delega las operaciones de control, numeración, verificación y telemetría en el binario del harness. **Regla obligatoria de introspección:** antes de asumir transiciones de estado o el comportamiento de cualquier subcomando, consulta `.seb/bin/seb status [<tarea>]` y `.seb/bin/seb help <subcomando>` (o `--help` / `-h`):
+- `.seb/bin/seb status [<tarea>] [--compact] [--json]`: Cruza `specs/`, `.seb/seb.lock` y SQLite (también en clones limpios sin DB), reporta desfases e indica el siguiente paso esperado.
+- `.seb/bin/seb help [<subcomando>]`: Muestra el catálogo de comandos o la ficha técnica de cada subcomando (lecturas, escrituras, precondiciones, transición de estado y códigos de salida).
 - `.seb/bin/seb spec-next <nombre_tarea>`: Reserva en SQLite el siguiente número secuencial (`001`, `002`...) e imprime la ruta del archivo spec.
 - `.seb/bin/seb verify <nombre_tarea>`: Ejecuta de forma aislada y determinista todos los checks definidos en `specs/<NNN>_<nombre_tarea>_verificador.md` y registra el resultado en `.seb/seb-audit.db`.
 - `.seb/bin/seb memory-add "<categoría>" "<descripción>"`: Añade una entrada estructurada en `MEMORY.md` y la vincula a la tarea activa en SQLite.
 - `.seb/bin/seb audit report`: Muestra el consumo de tiempo (latencia), herramientas usadas, tokens y costo acumulado por tarea.
 - `.seb/bin/seb oneoff [<id_spec>] [--dry-run]`: Lista o ejecuta operaciones one-off de actualización del arnés (solo rol `migrador`, activado por el humano).
+
+### Máquina de Estados SDD (Plano Editorial vs Motor vs `seb.lock`)
+| Fase / Disparador | Plano Editorial (`*_spec.md`) | Plano Motor (`seb status` / SQLite) | `.seb/seb.lock` |
+| :--- | :--- | :--- | :--- |
+| `seb spec-next <tarea>` | `BORRADOR` | `SPECIFIED` | *(sin entrada)* |
+| `seb-clarificador` (edita Markdown) | `APROBADA` / `BLOQUEADA_POR_DEPENDENCIA` | `SPECIFIED` *(no cambia hasta `plan-lock`)* | *(sin entrada)* |
+| `seb plan-lock <tarea>` | `APROBADA` | `PLANNED` | Sellado (`spec_hash`, `verifier_hash`) |
+| `seb verify <tarea>` (pasa todo) | `APROBADA` | `VERIFIED` | `verified: true`, `commit_hash` |
+| `seb verify <tarea>` (falla algún check) | `APROBADA` | `FAILED_VERIFICATION` | Sellado (`verified: false`) |
+| `seb abort <tarea>` | `ABORTADA` | `ABORTED` | `aborted: true` |
 
 ## 5. Eficiencia de Contexto y Tokens
 - Sé quirúrgico al explorar el repositorio: usa búsquedas dirigidas (`grep`/`ripgrep`, listado de directorios) en lugar de volcar archivos completos irrelevantes en el contexto.

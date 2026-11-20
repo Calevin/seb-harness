@@ -77,6 +77,29 @@ func main() {
 	cmd := os.Args[1]
 	args := os.Args[2:]
 
+	// Sistema de ayuda bajo demanda sin tocar ni crear .seb/seb-audit.db
+	if cmd == "help" {
+		os.Exit(runHelpCommand(args, os.Stdout, os.Stderr))
+	}
+	if cmd == "--help" || cmd == "-h" {
+		os.Exit(runHelpCommand(nil, os.Stdout, os.Stderr))
+	}
+	if hasHelpFlag(args) {
+		os.Exit(runHelpCommand([]string{cmd}, os.Stdout, os.Stderr))
+	}
+
+	// seb status opera en lectura pura; no crea .seb/seb-audit.db si no existe
+	if cmd == "status" {
+		var statusDB *sql.DB
+		if _, statErr := os.Stat(dbPath); statErr == nil {
+			if roDB, err := sql.Open("sqlite", dbPath+"?_pragma=query_only(ON)&_pragma=busy_timeout(5000)"); err == nil {
+				statusDB = roDB
+				defer statusDB.Close()
+			}
+		}
+		os.Exit(runStatusCommand(statusDB, args, os.Stdout, os.Stderr))
+	}
+
 	// Init puede crear el directorio .seb antes de abrir la DB
 	if cmd == "init" {
 		if err := ensureDirectories(); err != nil {
@@ -96,8 +119,6 @@ func main() {
 		fmt.Println("[seb-harness] Estructura y base de datos SQLite inicializadas correctamente.")
 	case "spec-next":
 		cmdSpecNext(db, args)
-	case "status":
-		cmdStatus(db, args)
 	case "plan-lock":
 		cmdPlanLock(db, args)
 	case "verify":
@@ -1014,56 +1035,7 @@ func cmdMemoryAdd(db *sql.DB, args []string) {
 	fmt.Println("[seb-harness] Entrada registrada en MEMORY.md y auditada en SQLite.")
 }
 
-// 6. seb status [nombre_tarea]
-func cmdStatus(db *sql.DB, args []string) {
-	rows, err := db.Query(`SELECT id, name, status, spec_path, updated_at FROM tasks ORDER BY id ASC`)
-	if err != nil {
-		fatal("Error consultando tareas: %v", err)
-	}
-	defer rows.Close()
-
-	lock := readLockFile()
-
-	fmt.Println("| ID | Clave Canónica | Estado SDD | Dependencias | Archivo Spec | Última Actualización |")
-	fmt.Println("| :--- | :--- | :--- | :--- | :--- | :--- |")
-	for rows.Next() {
-		var id, name, status, specPath, updated string
-		_ = rows.Scan(&id, &name, &status, &specPath, &updated)
-		canonical := fmt.Sprintf("%s_%s", id, name)
-
-		deps, _ := parseSpecDependencies(specPath)
-		depStr := "-"
-		if len(deps) > 0 {
-			var depFormatted []string
-			for _, d := range deps {
-				depTask, err := resolveTask(db, d)
-				if err != nil {
-					depFormatted = append(depFormatted, fmt.Sprintf("`%s` [HUERFANA]", d))
-					continue
-				}
-				tLock, ok := lock.Tasks[depTask.CanonicalName]
-				if !ok {
-					tLock = lock.Tasks[depTask.Name]
-				}
-				if tLock.Aborted {
-					depFormatted = append(depFormatted, fmt.Sprintf("`%s` [ABORTADA]", depTask.ID))
-				} else if tLock.Verified && tLock.CommitHash != "" {
-					depFormatted = append(depFormatted, fmt.Sprintf("`%s` [OK]", depTask.ID))
-				} else {
-					depFormatted = append(depFormatted, fmt.Sprintf("`%s` [BLOQUEADA]", depTask.ID))
-				}
-			}
-			depStr = strings.Join(depFormatted, ", ")
-		}
-
-		displayStatus := fmt.Sprintf("**%s**", status)
-		if status == "ABORTED" {
-			displayStatus = "**[ABORTADA]**"
-		}
-
-		fmt.Printf("| `%s` | `%s` | %s | %s | `%s` | %s |\n", id, canonical, displayStatus, depStr, specPath, updated)
-	}
-}
+// 6. seb status implementado en status.go (runStatusCommand)
 
 // 7. seb audit <log|import-usage|report>
 func cmdAudit(db *sql.DB, args []string) {
@@ -1363,23 +1335,7 @@ func currentGitCommit() string {
 }
 
 func printUsage() {
-	fmt.Println(`seb — Motor determinista SDD y Auditoría SQLite (seb-harness)
-
-Comandos disponibles:
-  seb init                                  Inicializa directorios y .seb/seb-audit.db
-  seb spec-next <tarea>                     Reserva el siguiente ID (<001>) y devuelve la ruta de la spec
-  seb plan-lock <tarea>                     Verifica testabilidad y sella hashes SHA-256 de spec y verificador
-  seb verify <tarea>                        Ejecuta determinísticamente specs/<tarea>_verificador.md y audita
-  seb guard <rol> <write|exec> <ruta>       Valida permisos de Menor Privilegio (<1ms)
-  seb role <set <rol>|get|clear>            Gestiona el rol de sesión activo
-  seb abort <tarea> [--purge] [--force]    Aborta formalmente o purga una tarea y sus artefactos
-  seb task abort <tarea> [flags]            Alias estructurado de abort
-  seb oneoff [<id_spec>] [--dry-run]        Lista o ejecuta operaciones one-off de actualización (rol migrador)
-  seb memory-add "<categoría>" "<texto>"    Añade aprendizaje a MEMORY.md y registra en SQLite
-  seb status                                Muestra el estado de todas las specs en el proyecto
-  seb audit log [flags]                     Registra llamada a tool, latencia, tokens y costo USD
-  seb audit import-usage [flags] [archivo]  Importa registros de uso de tokens desde usage.jsonl
-  seb audit report                          Imprime informe de observabilidad, latencia y costos por tarea`)
+	renderHelpCatalog(os.Stdout)
 }
 
 func fatal(format string, a ...any) {

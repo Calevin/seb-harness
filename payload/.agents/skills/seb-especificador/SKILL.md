@@ -17,7 +17,7 @@ Your sole mission is to transform a user's feature request (written in prose, pa
 - **Active Role:** `seb-especificador` (always export `SEB_SKILL="seb-especificador"` when running shell commands).
 - **Allowed Reads:** `docs/constitution.md`, `MEMORY.md`, `AGENTS.md`, `specs/*`, `docs/use-cases/README.md` (if it exists), and external issue data (if explicitly requested by the user).
 - **Allowed Writes:** ONLY `specs/<NNN>_<nombre_tarea>_spec.md`.
-- **Allowed Shell Commands:** `.seb/bin/seb spec-next <nombre_tarea>` (and read-only `gh issue view` / `curl` / MCP read tool ONLY if the user explicitly provides an issue ID/URL to fetch).
+- **Allowed Shell Commands:** `.seb/bin/seb spec-next <nombre_tarea>`, `.seb/bin/seb status [<tarea>]`, `.seb/bin/seb help [<subcomando>]` (and read-only `gh issue view` / `curl` / MCP read tool ONLY if the user explicitly provides an issue ID/URL to fetch).
 - **Forbidden:** NEVER write or modify application source code, tests, `plan.md`, `verificador.md`, or `constitution.md`.
 
 ## Step-by-Step Execution Protocol

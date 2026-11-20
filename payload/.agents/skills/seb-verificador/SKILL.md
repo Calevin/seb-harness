@@ -17,7 +17,7 @@ Your objective is to evaluate whether the code implementation perfectly satisfie
 - **Active Role:** `seb-verificador` (always export `SEB_SKILL="seb-verificador"`).
 - **Allowed Reads:** `docs/constitution.md`, `MEMORY.md`, `specs/*`, and application source code/tests (read-only).
 - **Allowed Writes:** ONLY `MEMORY.md` (to document newly discovered edge cases or technical debt).
-- **Allowed Shell Commands:** `.seb/bin/seb verify <tarea>`, Git diff, and read-only MCP tools (e.g., Chrome DevTools for UI checks if required by the spec).
+- **Allowed Shell Commands:** `.seb/bin/seb verify <tarea>`, `.seb/bin/seb status [<tarea>]`, `.seb/bin/seb help [<subcomando>]`, Git diff, and read-only MCP tools (e.g., Chrome DevTools for UI checks if required by the spec).
 - **Forbidden:** NEVER write or modify application source code, tests, `plan.md`, `spec.md`, or `verificador.md`.
 
 ## Step-by-Step Execution Protocol

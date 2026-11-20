@@ -17,6 +17,7 @@ Tu mision es transformar el comportamiento del sistema verificado en artefactos 
 - **Rol Activo:** `seb-documentador` (exportar siempre `SEB_SKILL="seb-documentador"`).
 - **Lectura Permitida:** `docs/constitution.md`, `specs/<NNN>_<tarea>_*`, codigo fuente implementado, suite de tests y `docs/use-cases/*`.
 - **Escritura Permitida:** Unicamente archivos en `docs/use-cases/` (ej: `docs/use-cases/UC-<dominio>_<accion>.md`), el indice `docs/use-cases/README.md` y `MEMORY.md`.
+- **Herramientas de Diagnostico:** Usa `.seb/bin/seb status [<tarea>]` y `.seb/bin/seb help <subcomando>` para verificar el estado real y sellado de las specs antes de documentar.
 - **Prohibicion Absoluta:** Prohibido modificar codigo de aplicacion, tests, `constitution.md`, specs cerradas o tablas verificadoras.
 
 ## Restricciones Obligatorias de Estilo
