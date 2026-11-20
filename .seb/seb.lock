@@ -83,6 +83,12 @@
       "verifier_hash": "47da50f07166bab295da606855afedaed656d36a93d3f815cc026df7b31fe7cd",
       "verified": true,
       "commit_hash": "cacb83e"
+    },
+    "015_integridad_reserva_purga": {
+      "spec_hash": "e060dcae274f65b32048c6b79370b9c7cf9f6dd1cd267b3f0a55508ed5efbd9e",
+      "verifier_hash": "f1eb4962a54e08ba98b0b65be768716a055d5615bac01ee86033af866e3fa876",
+      "verified": true,
+      "commit_hash": "799eb05"
     }
   }
 }

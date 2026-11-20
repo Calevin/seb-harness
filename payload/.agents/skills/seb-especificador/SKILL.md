@@ -51,7 +51,7 @@ Derive a short `snake_case` task name (`<nombre_tarea>`, e.g., `autenticacion_jw
 SEB_SKILL="seb-especificador" .seb/bin/seb spec-next <nombre_tarea>
 ```
 
-Use the exact file path returned by the command (e.g., `specs/001_autenticacion_jwt_spec.md`).
+Use the exact file path returned by the command (e.g., `specs/001_autenticacion_jwt_spec.md`). The command atomically creates an initial stub file at that path to lock the sequential ID on disk and in Git.
 
 #### Globally Unique Identifiers (`<NNN>-<TIPO>-<NN>`)
 
@@ -59,7 +59,7 @@ Every identifier declared in the specification (`HU`, `RF`, `RNF`, `CL`) MUST ca
 
 ### Phase 4: Write `specs/<NNN>_<nombre_tarea>_spec.md` Using Strict EARS Syntax
 
-Write the specification in **Spanish** using the exact template below.
+Complete and overwrite the initial stub file created by `seb spec-next` at `specs/<NNN>_<nombre_tarea>_spec.md` in **Spanish** using the exact template below.
 
 #### Mandatory EARS Rules (Easy Approach to Requirements Syntax)
 

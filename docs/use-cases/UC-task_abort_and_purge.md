@@ -1,6 +1,7 @@
 # UC-task_abort_and_purge: Aborto Formal y Purga Atomica de Tareas
 
 > **Trazabilidad SDD:** Derivado de la spec `specs/009_aborto_tarea_spec.md` (Requisitos: `009-RF-01` a `009-RF-14`, `009-RNF-01`, `009-RNF-02`, `009-RNF-03`, `009-RNF-04`).
+> **Revision (Spec 015):** `specs/015_integridad_reserva_purga_spec.md` (Requisitos: `015-RF-09`, `015-RF-10`, `015-RNF-02`, `015-CL-03`) acota la purga en SQLite estrictamente a la identidad univoca resuelta (`id` / clave canonica), evitando borrados colaterales de tareas con distinto identificador que compartan el mismo nombre simple.
 
 ## 1. Ficha de Intencion
 - **ID:** UC-task_abort_and_purge
@@ -11,7 +12,7 @@
 - **Invariantes de Negocio:**
   - Ninguna tarea formalmente verificada (`VERIFIED` o con `verified: true` y `commit_hash` en `.seb/seb.lock`) ni ninguna tarea de la cual dependan otras especificaciones en `specs/` puede ser abortada o purgada sin la bandera explicita `--force` (`-f`) (`009-RF-12`, `009-RF-13`).
   - El **Aborto Formal** (por defecto) conserva intactos los registros de telemetria y costos en `agent_actions`, actualiza el archivo spec a `Estado: ABORTADA` y marca `verified: false, aborted: true` en `.seb/seb.lock` (`009-RF-01`, `009-RF-02`, `009-RF-05`).
-  - La **Purga Atomica** (`--purge`) elimina transaccionalmente los registros en SQLite (`verifications`, `agent_actions`, `tasks`), borra fisicamente la triada en `specs/` y remueve la clave de `.seb/seb.lock`, liberando el ID secuencial si era el mayor (`009-RF-06` a `009-RF-09`).
+  - La **Purga Atomica** (`--purge`) elimina transaccionalmente los registros en SQLite (`verifications`, `agent_actions`, `tasks`) acotados estrictamente a la identidad univoca resuelta (`id` / clave canonica, nunca por nombre simple compartido), borra fisicamente la triada en `specs/` y remueve la clave de `.seb/seb.lock`, liberando el ID secuencial si era el mayor (`009-RF-06` a `009-RF-09`, `015-RF-09`, `015-RF-10`, `015-CL-03`).
 
 ## 2. Diagrama de Interaccion del Sistema (SSD)
 ```mermaid

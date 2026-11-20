@@ -371,26 +371,153 @@ func resolveTask(db *sql.DB, query string) (TaskInfo, error) {
 	return t, nil
 }
 
-// 1. seb spec-next <nombre_tarea>
-func cmdSpecNext(db *sql.DB, args []string) {
-	start := time.Now()
-	if len(args) < 1 {
-		fatal("Uso: seb spec-next <nombre_tarea>")
-	}
-	taskName := sanitizeName(args[0])
+// buildSpecStubContent construye el contenido minimo valido del stub inicial de especificacion
+func buildSpecStubContent(id, taskName string) string {
+	return fmt.Sprintf(`# Spec %s — %s
 
-	// 1. Escanear el directorio specs/ para encontrar el prefijo numérico más alto real
+- **Tarea ID:** `+"`%s`"+`
+- **Identificador:** `+"`%s`"+`
+- **Origen:** [Pendiente]
+- **Estado:** `+"`BORRADOR`"+`
+- **Afecta-UC:** [PENDIENTE]
+
+## 10. Dudas Abiertas y Puntos por Clarificar
+
+- [NECESITA ACLARACIÓN] Stub recién reservado por `+"`seb spec-next`"+`; pendiente redactar especificación completa.
+`, id, taskName, id, taskName)
+}
+
+// parseSpecNextArgs valida y extrae el nombre de tarea y el flag --dry-run
+func parseSpecNextArgs(args []string) (string, bool, error) {
+	dryRun := false
+	var rawName string
+	for _, a := range args {
+		if a == "--dry-run" {
+			dryRun = true
+			continue
+		}
+		if strings.HasPrefix(a, "-") {
+			return "", false, fmt.Errorf("flag desconocido en spec-next: %s", a)
+		}
+		if rawName != "" {
+			return "", false, errors.New("demasiados argumentos: Uso: seb spec-next [--dry-run] <nombre_tarea>")
+		}
+		rawName = a
+	}
+
+	trimmed := strings.TrimSpace(rawName)
+	if trimmed == "" {
+		return "", false, errors.New("nombre de tarea vacio o faltante: Uso: seb spec-next [--dry-run] <nombre_tarea>")
+	}
+	if strings.Contains(trimmed, "..") || strings.ContainsAny(trimmed, "/\\") {
+		return "", false, fmt.Errorf("nombre de tarea invalido (secuencia de ruta no permitida): '%s'", rawName)
+	}
+
+	taskName := sanitizeName(trimmed)
+	if taskName == "" {
+		return "", false, fmt.Errorf("nombre de tarea invalido tras saneamiento: '%s'", rawName)
+	}
+	return taskName, dryRun, nil
+}
+
+// reserveSpecInDB inserta una reserva rechazando colisiones de ID con nombre distinto
+func reserveSpecInDB(db *sql.DB, id, taskName, specPath string) error {
+	if db == nil {
+		return nil
+	}
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	if err := reserveSpecInTx(tx, id, taskName, specPath); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
+func reserveSpecInTx(tx *sql.Tx, id, taskName, specPath string) error {
+	var existingName string
+	err := tx.QueryRow(`SELECT name FROM tasks WHERE id = ?`, id).Scan(&existingName)
+	if err == nil {
+		if existingName != taskName {
+			return fmt.Errorf("colision de ID '%s': ya asignado a la tarea '%s'", id, existingName)
+		}
+		return nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return err
+	}
+
+	_, err = tx.Exec(
+		`INSERT INTO tasks (id, name, spec_path, status) VALUES (?, ?, ?, 'SPECIFIED')`,
+		id, taskName, specPath,
+	)
+	return err
+}
+
+// specNext calcula el siguiente ID secuencial, crea el stub en disco y registra la reserva de forma atomica
+func specNext(db *sql.DB, args []string) (string, error) {
+	start := time.Now()
+	taskName, dryRun, err := parseSpecNextArgs(args)
+	if err != nil {
+		return "", err
+	}
+
+	// 1. Escanear specs/ para detectar existencia previa con el mismo nombre y calcular maxID
 	files, _ := filepath.Glob("specs/*_*_spec.md")
 	maxID := 0
-	re := regexp.MustCompile(`^specs/(\d{3})_`)
+	re := regexp.MustCompile(`^specs/(\d{3})_(.+)_spec\.md$`)
 
 	for _, f := range files {
 		matches := re.FindStringSubmatch(f)
-		if len(matches) == 2 {
-			var id int
-			fmt.Sscanf(matches[1], "%d", &id)
-			if id > maxID {
-				maxID = id
+		if len(matches) != 3 {
+			continue
+		}
+		idStr := matches[1]
+		nameStr := matches[2]
+
+		var id int
+		fmt.Sscanf(idStr, "%d", &id)
+		if id > maxID {
+			maxID = id
+		}
+
+		// Idempotencia acotada al stub sin redactar; rechazar si ya fue editada
+		if nameStr == taskName {
+			raw, readErr := os.ReadFile(f)
+			if readErr != nil {
+				return "", fmt.Errorf("error leyendo spec existente '%s': %w", f, readErr)
+			}
+			normalized := strings.ReplaceAll(string(raw), "\r\n", "\n")
+			expectedStub := strings.ReplaceAll(buildSpecStubContent(idStr, taskName), "\r\n", "\n")
+			if normalized == expectedStub {
+				if !dryRun && db != nil {
+					if err := reserveSpecInDB(db, idStr, taskName, f); err != nil {
+						return "", err
+					}
+				}
+				return f, nil
+			}
+			return "", fmt.Errorf("ya existe una especificacion redactada para '%s' en '%s'", taskName, f)
+		}
+	}
+
+	// 2. Considerar reservas registradas en SQLite para evitar colisiones entre llamadas consecutivas
+	if db != nil {
+		rows, qErr := db.Query(`SELECT id, name FROM tasks`)
+		if qErr == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var dbIDStr, dbName string
+				if scanErr := rows.Scan(&dbIDStr, &dbName); scanErr == nil {
+					var id int
+					fmt.Sscanf(dbIDStr, "%d", &id)
+					if id > maxID {
+						maxID = id
+					}
+				}
 			}
 		}
 	}
@@ -398,18 +525,72 @@ func cmdSpecNext(db *sql.DB, args []string) {
 	nextID := fmt.Sprintf("%03d", maxID+1)
 	specPath := buildArtifactPath(nextID, taskName, "spec")
 
-	// 2. Sincronizar idempotentemente la base de datos local
-	_, err := db.Exec(`
-		INSERT INTO tasks (id, name, spec_path, status)
-		VALUES (?, ?, ?, 'SPECIFIED')
-		ON CONFLICT(id) DO UPDATE SET name=excluded.name, spec_path=excluded.spec_path`,
-		nextID, taskName, specPath)
+	// 3. Modo --dry-run: devolver ruta propuesta sin efectos secundarios
+	if dryRun {
+		return specPath, nil
+	}
+
+	// 4. Validar que el ID calculado no colisione en disco con otro nombre
+	existingWithID, _ := filepath.Glob(filepath.Join("specs", nextID+"_*_spec.md"))
+	for _, f := range existingWithID {
+		if f != specPath {
+			return "", fmt.Errorf("colision de ID '%s': ya existe '%s' en disco", nextID, f)
+		}
+	}
+
+	// 5. Transaccion SQLite + creacion atomica de archivo stub en disco con rollback ante fallo
+	var tx *sql.Tx
+	if db != nil {
+		tx, err = db.Begin()
+		if err != nil {
+			return "", fmt.Errorf("error iniciando transaccion SQLite: %w", err)
+		}
+		defer tx.Rollback()
+
+		if err := reserveSpecInTx(tx, nextID, taskName, specPath); err != nil {
+			return "", fmt.Errorf("error reservando tarea en SQLite: %w", err)
+		}
+	}
+
+	if err := os.MkdirAll(filepath.Dir(specPath), 0755); err != nil {
+		return "", fmt.Errorf("error creando directorio specs/: %w", err)
+	}
+
+	f, err := os.OpenFile(specPath, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0644)
 	if err != nil {
-		fatal("Error sincronizando tarea en SQLite: %v", err)
+		return "", fmt.Errorf("error creando archivo stub '%s': %w", specPath, err)
+	}
+	stubContent := buildSpecStubContent(nextID, taskName)
+	_, writeErr := f.WriteString(stubContent)
+	closeErr := f.Close()
+	if writeErr != nil || closeErr != nil {
+		_ = os.Remove(specPath)
+		if writeErr != nil {
+			return "", fmt.Errorf("error escribiendo archivo stub '%s': %w", specPath, writeErr)
+		}
+		return "", fmt.Errorf("error cerrando archivo stub '%s': %w", specPath, closeErr)
+	}
+
+	if tx != nil {
+		if err := tx.Commit(); err != nil {
+			_ = os.Remove(specPath)
+			return "", fmt.Errorf("error confirmando reserva en SQLite: %w", err)
+		}
 	}
 
 	dur := time.Since(start).Milliseconds()
-	logInternalAction(db, nextID, "seb-especificador", "spec-next", taskName, specPath, dur, 0)
+	if db != nil {
+		logInternalAction(db, nextID, "seb-especificador", "spec-next", taskName, specPath, dur, 0)
+	}
+	return specPath, nil
+}
+
+// 1. seb spec-next [--dry-run] <nombre_tarea>
+func cmdSpecNext(db *sql.DB, args []string) {
+	specPath, err := specNext(db, args)
+	if err != nil {
+		fatal("%v", err)
+	}
 	fmt.Println(specPath)
 }
 
@@ -1402,16 +1583,16 @@ func executeTaskPurge(db *sql.DB, task TaskInfo, lock SebLock) error {
 		}
 		defer tx.Rollback()
 
-		if _, err := tx.Exec(`DELETE FROM verifications WHERE task_id = ? OR task_id = ? OR task_id = ?`,
-			task.ID, task.Name, task.CanonicalName); err != nil {
+		if _, err := tx.Exec(`DELETE FROM verifications WHERE task_id = ? OR task_id = ?`,
+			task.ID, task.CanonicalName); err != nil {
 			return fmt.Errorf("error purgando verifications: %w", err)
 		}
-		if _, err := tx.Exec(`DELETE FROM agent_actions WHERE task_id = ? OR task_id = ? OR task_id = ?`,
-			task.ID, task.Name, task.CanonicalName); err != nil {
+		if _, err := tx.Exec(`DELETE FROM agent_actions WHERE task_id = ? OR task_id = ?`,
+			task.ID, task.CanonicalName); err != nil {
 			return fmt.Errorf("error purgando agent_actions: %w", err)
 		}
-		if _, err := tx.Exec(`DELETE FROM tasks WHERE id = ? OR name = ?`,
-			task.ID, task.Name); err != nil {
+		if _, err := tx.Exec(`DELETE FROM tasks WHERE id = ?`,
+			task.ID); err != nil {
 			return fmt.Errorf("error purgando tasks: %w", err)
 		}
 		if err := tx.Commit(); err != nil {
