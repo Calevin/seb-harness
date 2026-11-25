@@ -22,8 +22,9 @@ func prefixedDirectiveLiterals() []directiveLiteral {
 		planSkill  = ".agents/skills/seb-planificador/SKILL.md"
 		clarSkill  = ".agents/skills/seb-clarificador/SKILL.md"
 		docSkill   = ".agents/skills/seb-documentador/SKILL.md"
-		rules      = ".agents/rules/00-seb-harness.md"
-		agentsFile = "AGENTS.md"
+		rules        = ".agents/rules/00-seb-harness.md"
+		agentsFile   = "AGENTS.md"
+		protocolFile = ".agents/SEB-HARNESS.md"
 	)
 	lits := []directiveLiteral{
 		// 013-RF-01
@@ -46,17 +47,17 @@ func prefixedDirectiveLiterals() []directiveLiteral {
 		// 013-RF-31
 		{docSkill, "usar el identificador prefijado `<NNN>-<TIPO>-<NN>` de la spec propietaria"},
 	}
-	// 013-RF-32, 013-RF-33
-	for _, f := range []string{rules, agentsFile} {
-		lits = append(lits,
-			directiveLiteral{f, "identificador prefijado `<NNN>-<TIPO>-<NN>`"},
-			directiveLiteral{f, "solo en texto (comentarios y documentos), nunca como parte de identificadores de código"},
-			directiveLiteral{f, "Operaciones One-Off"},
-			directiveLiteral{f, "rol `migrador`"},
-			directiveLiteral{f, "identificadas por el ID de la spec que las define"},
-			directiveLiteral{f, "única excepción autorizada a la inmutabilidad"},
-		)
-	}
+	// 013-RF-32, 013-RF-33, 017-RF-01, 017-RF-08, 017-RF-13
+	lits = append(lits,
+		directiveLiteral{protocolFile, "identificador prefijado `<NNN>-<TIPO>-<NN>`"},
+		directiveLiteral{protocolFile, "solo en texto (comentarios y documentos), nunca como parte de identificadores de código"},
+		directiveLiteral{protocolFile, "Operaciones One-Off"},
+		directiveLiteral{protocolFile, "rol `migrador`"},
+		directiveLiteral{protocolFile, "identificadas por el ID de la spec que las define"},
+		directiveLiteral{protocolFile, "única excepción autorizada a la inmutabilidad"},
+		directiveLiteral{agentsFile, ".agents/SEB-HARNESS.md"},
+		directiveLiteral{rules, ".agents/SEB-HARNESS.md"},
+	)
 	return lits
 }
 

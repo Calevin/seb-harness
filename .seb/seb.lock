@@ -95,6 +95,12 @@
       "verifier_hash": "70a9272ad761f5fb92f479ee1fd5f76b8f5de691df602fe4f0565e8a44270657",
       "verified": true,
       "commit_hash": "4f0845b"
+    },
+    "017_separacion_protocolo_agents": {
+      "spec_hash": "d7a19fe29eb49f5c9c2d4ba58e6c2f6cae496b4b22ad823f9c50a3408cf51230",
+      "verifier_hash": "f7bca721b73cfca87523a0af1bf27c0cac5cea7ec37b3c7de70ed4e5a06a7b39",
+      "verified": true,
+      "commit_hash": "ed2a533"
     }
   }
 }

@@ -51,31 +51,46 @@ func TestDocumentadorSkillDefinitionAndRules(t *testing.T) {
 		}
 	}
 
-	// 2. Validar que AGENTS.md (tanto payload como raiz) incluye la Fase 6 y la fila de menor privilegio
-	agentsPaths := []string{
-		filepath.Join(repoRoot, "payload", "AGENTS.md"),
-		filepath.Join(repoRoot, "AGENTS.md"),
+	// 2. Validar que el protocolo gestionado SEB-HARNESS.md (payload y .agents) incluye Fase 6 y matriz de menor privilegio (017-RF-01, 017-RF-13)
+	protocolPaths := []string{
+		filepath.Join(repoRoot, "payload", ".agents", "SEB-HARNESS.md"),
+		filepath.Join(repoRoot, ".agents", "SEB-HARNESS.md"),
 	}
 
-	for _, aPath := range agentsPaths {
+	for _, pPath := range protocolPaths {
+		contentBytes, err := os.ReadFile(pPath)
+		if err != nil {
+			t.Fatalf("No se pudo leer %s: %v", pPath, err)
+		}
+		content := string(contentBytes)
+
+		if !strings.Contains(content, "Fase 6 — Documentación (`seb-documentador`)") {
+			t.Errorf("El archivo %s debe declarar la Fase 6 para seb-documentador", pPath)
+		}
+		if !strings.Contains(content, "`seb-documentador`") || !strings.Contains(content, "docs/use-cases/*.md") {
+			t.Errorf("El archivo %s debe incluir la fila de seb-documentador en la tabla de menor privilegio", pPath)
+		}
+		if emojiRegex.MatchString(content) {
+			t.Errorf("El archivo %s contiene emojis prohibidos", pPath)
+		}
+	}
+
+	// Validar que AGENTS.md (payload y raiz) enrutan hacia .agents/SEB-HARNESS.md sin emojis
+	for _, aPath := range []string{filepath.Join(repoRoot, "payload", "AGENTS.md"), filepath.Join(repoRoot, "AGENTS.md")} {
 		contentBytes, err := os.ReadFile(aPath)
 		if err != nil {
 			t.Fatalf("No se pudo leer %s: %v", aPath, err)
 		}
 		content := string(contentBytes)
-
-		if !strings.Contains(content, "Fase 6 — Documentación (`seb-documentador`)") {
-			t.Errorf("El archivo %s debe declarar la Fase 6 para seb-documentador", aPath)
-		}
-		if !strings.Contains(content, "`seb-documentador`") || !strings.Contains(content, "docs/use-cases/*.md") {
-			t.Errorf("El archivo %s debe incluir la fila de seb-documentador en la tabla de menor privilegio", aPath)
+		if !strings.Contains(content, ".agents/SEB-HARNESS.md") {
+			t.Errorf("El enrutador %s debe referenciar .agents/SEB-HARNESS.md", aPath)
 		}
 		if emojiRegex.MatchString(content) {
 			t.Errorf("El archivo %s contiene emojis prohibidos", aPath)
 		}
 	}
 
-	// 3. Validar reglas de gobernanza en payload/.agents/rules/00-seb-harness.md
+	// 3. Validar regla global reducida en payload/.agents/rules/00-seb-harness.md (017-RF-08, 017-RF-13)
 	rulesPath := filepath.Join(repoRoot, "payload", ".agents", "rules", "00-seb-harness.md")
 	ruleBytes, err := os.ReadFile(rulesPath)
 	if err != nil {
@@ -83,8 +98,8 @@ func TestDocumentadorSkillDefinitionAndRules(t *testing.T) {
 	}
 	ruleContent := string(ruleBytes)
 
-	if !strings.Contains(ruleContent, "seb-documentador") || !strings.Contains(ruleContent, "docs/use-cases/*.md") {
-		t.Errorf("El archivo %s debe documentar los limites de menor privilegio para seb-documentador", rulesPath)
+	if !strings.Contains(ruleContent, ".agents/SEB-HARNESS.md") || !strings.Contains(ruleContent, "seb guard") {
+		t.Errorf("El archivo %s debe referenciar .agents/SEB-HARNESS.md y seb guard", rulesPath)
 	}
 	if emojiRegex.MatchString(ruleContent) {
 		t.Errorf("El archivo %s contiene emojis prohibidos", rulesPath)

@@ -1,6 +1,7 @@
 # UC-provisioning_harness_uninstall: Desinstalacion Quirurgica y Reversion del Arnes
 
 > **Trazabilidad SDD:** Derivado de la spec `specs/003_desinstalacion_arnes_spec.md` (Requisitos: `003-RF-01` a `003-RF-18`, `003-RNF-01`, `003-RNF-02`). Complementado por `specs/007_migracion_contexto_brownfield_spec.md` (`007-RF-08`) y `specs/010_integracion_documentador_spec.md` (`010-RF-12`).
+> **Revision (Spec 017):** `specs/017_separacion_protocolo_agents_spec.md` (Requisitos: `017-RF-10`, `017-RNF-03`, `017-CL-01`, `017-CL-02`, `017-CL-05`) incorpora la eliminacion de `.agents/SEB-HARNESS.md` y la remocion quirurgica del bloque gestionado `<!-- BEGIN/END seb-harness:managed -->` dentro de `AGENTS.md` en desinstalacion estandar (sin `--purge`).
 
 ## 1. Ficha de Intencion
 - **ID:** UC-provisioning_harness_uninstall
@@ -10,8 +11,9 @@
   - Directorio objetivo existente en el sistema de archivos.
   - Presencia del directorio maestro `payload/.agents/` en el repositorio del arnes para identificar los componentes oficiales a desinstalar.
 - **Invariantes de Negocio:**
-  - Por defecto (sin `--purge`), se preservan intactos `specs/`, `docs/constitution.md`, `docs/use-cases/`, `AGENTS.md` y `MEMORY.md` (`010-RF-17`, `Spec 010 010-RF-12`).
-  - Dentro de `.agents/`, solo se eliminan los archivos y subdirectorios provistos por `payload/.agents/`, conservando reglas o skills propios del proyecto (`003-RF-06`).
+  - Por defecto (sin `--purge`), se preservan intactos `specs/`, `docs/constitution.md`, `docs/use-cases/`, `MEMORY.md` y todo el contenido propio del proyecto en `AGENTS.md` fuera del bloque gestionado (`003-RF-17`, `010-RF-12`, `017-RF-10`).
+  - Al desinstalar sin `--purge`, si `AGENTS.md` contiene un bloque gestionado valido, se remueve unicamente dicho bloque (eliminando `AGENTS.md` solo si no queda contenido propio del proyecto; respetando `--dry-run`) (`017-RF-10`, `017-CL-05`).
+  - Dentro de `.agents/`, solo se eliminan los archivos y subdirectorios provistos por `payload/.agents/` (incluido `.agents/SEB-HARNESS.md`), conservando reglas o skills propios del proyecto (`003-RF-06`, `017-RF-10`).
   - En entornos no interactivos (`stdin` no es TTY), el uso de `--purge` exige obligatoriamente `--force` (`-f`) o aborta con codigo `1` (`003-RF-15`).
 
 ## 2. Diagrama de Interaccion del Sistema (SSD)
@@ -64,6 +66,7 @@ flowchart TD
 | `TARGET_DIR_NOT_FOUND` | El directorio objetivo especificado no existe | Mensaje de error en `stderr` y salida con `exit code 1` (`003-RF-11`) |
 | `UNEXPECTED_AGENTS_SYMLINK` | `.agents` es un enlace simbolico en un proyecto destino sin `--self` | Aborto inmediato con `exit code 1` sin seguir ni borrar el enlace (`003-CL-04`) |
 | `NON_INTERACTIVE_PURGE_WITHOUT_FORCE` | Invocacion de `--purge` sin TTY y sin `-f`/`--force` | Aborto inmediato con `exit code 1` protegiendo artefactos (`003-RF-15`, `003-CL-05`) |
+| `MALFORMED_MANAGED_MARKERS_ON_UNINSTALL` | `AGENTS.md` presenta marcadores `BEGIN`/`END` malformados o duplicados durante desinstalacion sin `--purge` | Advertencia en `stderr` preservando intacto `AGENTS.md` sin abortar el resto de la desinstalacion (`017-CL-02`) |
 
 ## 5. Postcondiciones y Efectos Secundarios
 - **Estado Persistido:** Eliminacion de `.seb/`, limpieza de entradas del arnes en `.gitignore`, remocion selectiva de `.agents/` (conservando archivos personalizados), restauracion de hooks `.bak-seb` y restauracion de respaldos `*.pre-seb.*`. Si se ejecuto `--purge`, eliminacion adicional de `specs/`, `AGENTS.md`, `MEMORY.md` y `docs/constitution.md` (removiendo `docs/` solo si queda vacio).

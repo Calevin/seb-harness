@@ -56,21 +56,29 @@ Fase 5: Verificacion (seb-verificador)
 		t.Fatalf("Fallo install.sh en brownfield: %v\nSalida:\n%s", err, string(outBrownfield))
 	}
 
-	// Verificar que AGENTS.md original fue respetado
+	// Verificar que AGENTS.md legado fue respaldado en AGENTS.legacy-seb.md y reemplazado por enrutador gestionado (017-RF-06, 017-RF-13)
+	legacyBakPath := filepath.Join(tmpBrownfield, "AGENTS.legacy-seb.md")
+	legacyBakBytes, err := os.ReadFile(legacyBakPath)
+	if err != nil || string(legacyBakBytes) != customAgentsContent {
+		t.Fatalf("AGENTS.md legado no fue respaldado correctamente en AGENTS.legacy-seb.md: %v", err)
+	}
 	currentAgents, err := os.ReadFile(agentsPath)
-	if err != nil || string(currentAgents) != customAgentsContent {
-		t.Fatalf("AGENTS.md personalizado fue sobrescrito indebidamente: %s", string(currentAgents))
+	if err != nil || !strings.Contains(string(currentAgents), "<!-- BEGIN seb-harness:managed -->") {
+		t.Fatalf("AGENTS.md migrado debe contener el bloque gestionado: %s", string(currentAgents))
 	}
 
-	// Verificar que se genero AGENTS.md.patch.md
+	// Verificar que ya NO se genera AGENTS.md.patch.md y que .agents/SEB-HARNESS.md incluye Fase 6 (017-RF-09, 017-RF-13)
 	patchFileBrownfield := filepath.Join(tmpBrownfield, "AGENTS.md.patch.md")
-	patchBytes, err := os.ReadFile(patchFileBrownfield)
-	if err != nil {
-		t.Fatalf("No se genero AGENTS.md.patch.md en actualizacion: %v", err)
+	if _, err := os.Stat(patchFileBrownfield); !os.IsNotExist(err) {
+		t.Fatalf("No debe generarse AGENTS.md.patch.md tras Spec 017")
 	}
-	patchStr := string(patchBytes)
-	if !strings.Contains(patchStr, "seb-documentador") || !strings.Contains(patchStr, "Fase 6") {
-		t.Fatalf("El archivo patch no contiene la descripcion de Fase 6 o seb-documentador:\n%s", patchStr)
+	protocolBytes, err := os.ReadFile(filepath.Join(tmpBrownfield, ".agents", "SEB-HARNESS.md"))
+	if err != nil {
+		t.Fatalf("No se instalo .agents/SEB-HARNESS.md en actualizacion: %v", err)
+	}
+	protocolStr := string(protocolBytes)
+	if !strings.Contains(protocolStr, "seb-documentador") || !strings.Contains(protocolStr, "Fase 6") {
+		t.Fatalf("El protocolo gestionado no contiene la descripcion de Fase 6 o seb-documentador:\n%s", protocolStr)
 	}
 
 	// 3. Idempotencia: segunda ejecucion no falla

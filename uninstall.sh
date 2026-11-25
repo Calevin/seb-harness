@@ -27,6 +27,33 @@ info() { printf '\033[1;34m->\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!!\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
 
+MANAGED_BEGIN='<!-- BEGIN seb-harness:managed -->'
+MANAGED_END='<!-- END seb-harness:managed -->'
+
+# Valida los marcadores del bloque gestionado (0=valido, 1=malformado, 2=ausente)
+validate_managed_markers() {
+    local file="$1"
+    awk -v begin_m="$MANAGED_BEGIN" -v end_m="$MANAGED_END" '
+        {
+            line = $0
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line == begin_m) {
+                begin_count++
+                if (begin_line == 0) begin_line = NR
+            } else if (line == end_m) {
+                end_count++
+                if (end_line == 0) end_line = NR
+            }
+        }
+        END {
+            if (begin_count == 0 && end_count == 0) exit 2
+            if (begin_count == 1 && end_count == 1 && begin_line < end_line) exit 0
+            exit 1
+        }
+    ' "$file"
+}
+
 usage() { sed -n '2,17p' "${BASH_SOURCE[0]}" | sed 's/^# \{0,1\}//'; }
 
 # --- Argumentos -------------------------------------------------------------
@@ -259,6 +286,53 @@ if [ -d "$TARGET/.claude" ]; then
 
     if [ "$DRY_RUN" -eq 0 ]; then
         rmdir "$TARGET/.claude" 2>/dev/null || true
+    fi
+fi
+
+# 3.3.6 Remocion quirurgica del bloque gestionado en AGENTS.md (Spec 017)
+if [ "$PURGE" -eq 0 ] && [ -f "$TARGET/AGENTS.md" ]; then
+    marker_status=0
+    validate_managed_markers "$TARGET/AGENTS.md" || marker_status=$?
+    if [ "$marker_status" -eq 0 ]; then
+        tmp_agents="$(mktemp)"
+        awk -v begin_m="$MANAGED_BEGIN" -v end_m="$MANAGED_END" '
+            {
+                line = $0
+                sub(/^[[:space:]]+/, "", line)
+                sub(/[[:space:]]+$/, "", line)
+                if (line == begin_m) {
+                    in_block = 1
+                    next
+                }
+                if (in_block) {
+                    if (line == end_m) {
+                        in_block = 0
+                    }
+                    next
+                }
+                print $0
+            }
+        ' "$TARGET/AGENTS.md" > "$tmp_agents"
+
+        if grep -q '[^[:space:]]' "$tmp_agents"; then
+            if [ "$DRY_RUN" -eq 1 ]; then
+                rm -f "$tmp_agents"
+                info "[dry-run] Se removeria el bloque gestionado de AGENTS.md conservando contenido propio"
+            else
+                mv "$tmp_agents" "$TARGET/AGENTS.md"
+                info "Removido bloque gestionado de AGENTS.md (contenido propio preservado)."
+            fi
+        else
+            rm -f "$tmp_agents"
+            if [ "$DRY_RUN" -eq 1 ]; then
+                info "[dry-run] Se removeria el bloque gestionado y se eliminaria AGENTS.md (sin contenido propio)"
+            else
+                rm -f "$TARGET/AGENTS.md"
+                info "Removido bloque gestionado y eliminado AGENTS.md (sin contenido propio restante)."
+            fi
+        fi
+    elif [ "$marker_status" -eq 1 ]; then
+        warn "Marcadores de bloque gestionado malformados en $TARGET/AGENTS.md: se conserva el archivo intacto."
     fi
 fi
 

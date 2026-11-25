@@ -11,9 +11,10 @@
 #   -h, --help   Muestra esta ayuda.
 #
 # Re-ejecutarlo sobre un proyecto ya instalado ACTUALIZA el harness:
-#   - sobrescribe solo lo que provee payload/ (hooks, rules, skills del harness);
+#   - sobrescribe solo lo que provee payload/ (hooks, rules, skills, SEB-HARNESS.md);
 #     otros skills/rules propios del proyecto en .agents/ se conservan;
-#   - nunca toca AGENTS.md, MEMORY.md, docs/, specs/, .seb/seb.lock ni .seb/ACTIVE_TASK.
+#   - actualiza unicamente el bloque gestionado en AGENTS.md conservando el contenido propio;
+#   - nunca toca MEMORY.md, docs/, specs/, .seb/seb.lock ni .seb/ACTIVE_TASK.
 
 set -euo pipefail
 
@@ -25,9 +26,123 @@ info() { printf '\033[1;34m->\033[0m %s\n' "$*"; }
 warn() { printf '\033[1;33m!!\033[0m %s\n' "$*" >&2; }
 die()  { printf '\033[1;31mxx\033[0m %s\n' "$*" >&2; exit 1; }
 
+MANAGED_BEGIN='<!-- BEGIN seb-harness:managed -->'
+MANAGED_END='<!-- END seb-harness:managed -->'
+
 has_seb_signature() {
     local file="$1"
     [ -f "$file" ] && grep -qi "seb-harness" "$file"
+}
+
+# Valida los marcadores del bloque gestionado:
+#   0 = un par unico y bien ordenado (BEGIN antes de END)
+#   2 = sin marcadores presentes
+#   1 = marcadores malformados, invertidos o duplicados
+validate_managed_markers() {
+    local file="$1"
+    awk -v begin_m="$MANAGED_BEGIN" -v end_m="$MANAGED_END" '
+        {
+            line = $0
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line == begin_m) {
+                begin_count++
+                if (begin_line == 0) begin_line = NR
+            } else if (line == end_m) {
+                end_count++
+                if (end_line == 0) end_line = NR
+            }
+        }
+        END {
+            if (begin_count == 0 && end_count == 0) exit 2
+            if (begin_count == 1 && end_count == 1 && begin_line < end_line) exit 0
+            exit 1
+        }
+    ' "$file"
+}
+
+# Reemplaza literalmente el bloque gestionado sin expandir metacaracteres de shell o regex
+replace_managed_block() {
+    local target_file="$1" template_file="$2"
+    local block_tmp out_tmp
+    block_tmp="$(mktemp)"
+    out_tmp="$(mktemp)"
+
+    awk -v begin_m="$MANAGED_BEGIN" -v end_m="$MANAGED_END" '
+        {
+            line = $0
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line == begin_m) in_block = 1
+            if (in_block) print $0
+            if (line == end_m) in_block = 0
+        }
+    ' "$template_file" > "$block_tmp"
+
+    awk -v begin_m="$MANAGED_BEGIN" -v end_m="$MANAGED_END" -v block_file="$block_tmp" '
+        {
+            line = $0
+            sub(/^[[:space:]]+/, "", line)
+            sub(/[[:space:]]+$/, "", line)
+            if (line == begin_m) {
+                in_block = 1
+                while ((getline b < block_file) > 0) {
+                    print b
+                }
+                close(block_file)
+                next
+            }
+            if (in_block) {
+                if (line == end_m) {
+                    in_block = 0
+                }
+                next
+            }
+            print $0
+        }
+    ' "$target_file" > "$out_tmp"
+
+    rm -f "$block_tmp"
+    mv "$out_tmp" "$target_file"
+}
+
+# Sincroniza AGENTS.md aplicando reglas de bloque gestionado, respaldo legado y respaldo brownfield
+sync_agents_md() {
+    local target_file="$1" template_file="$2"
+    local dir bak status
+
+    if [ ! -e "$target_file" ]; then
+        cp "$template_file" "$target_file"
+        info "Creado AGENTS.md desde la plantilla."
+        return 0
+    fi
+
+    status=0
+    validate_managed_markers "$target_file" || status=$?
+
+    if [ "$status" -eq 0 ]; then
+        replace_managed_block "$target_file" "$template_file"
+        info "Actualizado bloque gestionado en AGENTS.md (contenido propio preservado)."
+    elif [ "$status" -eq 1 ]; then
+        die "Marcadores de bloque gestionado malformados o duplicados en $target_file. Se conserva el archivo intacto."
+    else
+        if has_seb_signature "$target_file"; then
+            dir="$(dirname "$target_file")"
+            bak="$dir/AGENTS.legacy-seb.md"
+            if [ -e "$bak" ]; then
+                warn "Ya existe un respaldo legado $bak; se conserva el respaldo previo."
+            else
+                mv "$target_file" "$bak"
+                info "Detectado AGENTS.md en formato legado. Respaldado en: $bak"
+            fi
+            cp "$template_file" "$target_file"
+            info "Instalado AGENTS.md con bloque gestionado seb-harness."
+        else
+            backup_pre_seb "$target_file"
+            cp "$template_file" "$target_file"
+            info "Instalado AGENTS.md oficial de seb-harness."
+        fi
+    fi
 }
 
 backup_pre_seb() {
@@ -96,6 +211,7 @@ if [ "$SELF" -eq 1 ]; then
         die ".agents existe y no es un symlink."
     fi
     ln -sfn payload/.agents "$TARGET/.agents"
+    sync_agents_md "$TARGET/AGENTS.md" "$PAYLOAD/AGENTS.md"
 else
     info "Instalando seb-harness en: $TARGET"
     if [ -L "$TARGET/.agents" ]; then
@@ -119,38 +235,8 @@ else
         fi
     done
 
-    # Archivos de contexto: gestion determinista de directivas previas (Spec 007)
-    if [ -e "$TARGET/AGENTS.md" ]; then
-        if has_seb_signature "$TARGET/AGENTS.md"; then
-            info "AGENTS.md ya existe con firma seb-harness: se conserva."
-            if ! grep -qi "seb-documentador" "$TARGET/AGENTS.md"; then
-                cat <<'EOF' > "$TARGET/AGENTS.md.patch.md"
-# Fragmento Recomendado para AGENTS.md — Fase 6 (seb-documentador)
-
-Tu archivo `AGENTS.md` conservó tus directivas previas pero no incluye la referencia a la Fase 6 (`seb-documentador`).
-Para habilitar formalmente la documentación funcional en tu proyecto, incorpora los siguientes fragmentos en tu `AGENTS.md`:
-
-## En la Sección 2 ("Flujo de Trabajo SDD y Skills del Harness"):
-
-- **Fase 6 — Documentación (`seb-documentador`)**: Genera o actualiza la documentación funcional de casos de uso (UC) y diagramas Mermaid en `docs/use-cases/` a partir de specs verificadas deterministamente.
-
-## En la Sección 3 ("Principio de Menor Privilegio (Guardarraíles por Fase)"):
-
-| Rol / Skill Activo | Lectura Permitida | Escritura Permitida | Ejecución de Comandos |
-| :--- | :--- | :--- | :--- |
-| `seb-documentador` | `docs/constitution.md`, `specs/*`, código fuente, tests (solo lectura) | `docs/use-cases/*.md`, `docs/use-cases/README.md`, `MEMORY.md` | Inspección pasiva (`git diff`, etc.) |
-EOF
-                warn "Se detectó AGENTS.md sin referencia a seb-documentador. Se generó $TARGET/AGENTS.md.patch.md con el fragmento recomendado para actualizar tu protocolo."
-            fi
-        else
-            backup_pre_seb "$TARGET/AGENTS.md"
-            cp "$PAYLOAD/AGENTS.md" "$TARGET/AGENTS.md"
-            info "Instalado AGENTS.md oficial de seb-harness."
-        fi
-    else
-        cp "$PAYLOAD/AGENTS.md" "$TARGET/AGENTS.md"
-        info "Creado AGENTS.md desde la plantilla."
-    fi
+    # Archivos de contexto: gestion determinista de bloque gestionado y directivas previas (Specs 007, 017)
+    sync_agents_md "$TARGET/AGENTS.md" "$PAYLOAD/AGENTS.md"
 
     if [ -e "$TARGET/MEMORY.md" ]; then
         info "MEMORY.md ya existe: se conserva."
