@@ -45,6 +45,7 @@ type TaskLock struct {
 	Verified     bool   `json:"verified,omitempty"`
 	CommitHash   string `json:"commit_hash,omitempty"`
 	Aborted      bool   `json:"aborted,omitempty"`
+	Mode         string `json:"mode,omitempty"`
 }
 
 // ModelPricing define las tarifas monetarias por millon de tokens
@@ -55,7 +56,8 @@ type ModelPricing struct {
 
 // EngineConfig representa la configuracion local opcional de .seb/config.json
 type EngineConfig struct {
-	Pricing map[string]ModelPricing `json:"pricing"`
+	Pricing   map[string]ModelPricing `json:"pricing"`
+	FastTrack *FastTrackConfig        `json:"fast_track,omitempty"`
 }
 
 // UsageRecord representa la linea estructurada de un archivo usage.jsonl
@@ -161,6 +163,7 @@ func ensureDirectories() error {
 		".agents/skills/seb-especificador",
 		".agents/skills/seb-clarificador",
 		".agents/skills/seb-planificador",
+		".agents/skills/seb-fast-task",
 		".agents/skills/seb-verificador",
 		".agents/skills/seb-documentador",
 		".agents/hooks",
@@ -183,6 +186,7 @@ func initDBSchema(db *sql.DB) error {
 		name TEXT NOT NULL,
 		spec_path TEXT NOT NULL,
 		status TEXT NOT NULL,
+		mode TEXT NOT NULL DEFAULT 'SDD',
 		spec_sha256 TEXT DEFAULT '',
 		verifier_sha256 TEXT DEFAULT '',
 		created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -269,6 +273,32 @@ func migrateDBSchema(db *sql.DB) error {
 			return err
 		}
 	}
+
+	// Migracion idempotente de columna mode en tabla tasks (Spec 018)
+	tRows, err := db.Query(`PRAGMA table_info(tasks)`)
+	if err != nil {
+		return err
+	}
+	defer tRows.Close()
+
+	hasTaskMode := false
+	for tRows.Next() {
+		var cid int
+		var name, ctype string
+		var notnull int
+		var dflt sql.NullString
+		var pk int
+		if err := tRows.Scan(&cid, &name, &ctype, &notnull, &dflt, &pk); err == nil {
+			if name == "mode" {
+				hasTaskMode = true
+			}
+		}
+	}
+	if !hasTaskMode {
+		if _, err := db.Exec(`ALTER TABLE tasks ADD COLUMN mode TEXT NOT NULL DEFAULT 'SDD'`); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -294,6 +324,8 @@ type TaskInfo struct {
 	SpecPath      string
 	PlanPath      string
 	VerifierPath  string
+	FastPath      string
+	Mode          string
 	Status        string
 }
 
@@ -386,8 +418,14 @@ func resolveTask(db *sql.DB, query string) (TaskInfo, error) {
 	if t.SpecPath == "" {
 		t.SpecPath = buildArtifactPath(t.ID, t.Name, "spec")
 	}
-	t.PlanPath = buildArtifactPath(t.ID, t.Name, "plan")
-	t.VerifierPath = buildArtifactPath(t.ID, t.Name, "verificador")
+	t.FastPath = buildArtifactPath(t.ID, t.Name, "plan_y_verificador")
+	mode, planPath, verifierPath, detectErr := detectTaskModeAndArtifacts(t.ID, t.Name, t.SpecPath)
+	if detectErr != nil {
+		return TaskInfo{}, detectErr
+	}
+	t.Mode = mode
+	t.PlanPath = planPath
+	t.VerifierPath = verifierPath
 
 	return t, nil
 }
@@ -634,6 +672,12 @@ func cmdPlanLock(db *sql.DB, args []string) {
 	if strings.Contains(string(specBytes), "[NECESITA ACLARACIÓN]") {
 		fatal("BLOQUEO SDD: La spec '%s' aún contiene etiquetas [NECESITA ACLARACIÓN]. Ejecuta el skill seb-clarificador antes de planificar.", task.SpecPath)
 	}
+	if task.Mode == taskModeFAST {
+		meta := parseSpecMetadata(task.SpecPath)
+		if meta.EditorialState != "APROBADA" {
+			fatal("BLOQUEO FAST: La spec acotada '%s' debe declarar 'Estado: APROBADA' antes de sellar (estado actual: %s).", task.SpecPath, meta.EditorialState)
+		}
+	}
 
 	checks, err := parseVerifierFile(task.VerifierPath)
 	if err != nil {
@@ -660,12 +704,18 @@ func cmdPlanLock(db *sql.DB, args []string) {
 	specHash, _ := fileSHA256(task.SpecPath)
 	verifHash, _ := fileSHA256(task.VerifierPath)
 
+	lockMode := ""
+	if task.Mode == taskModeFAST {
+		lockMode = "fast"
+	}
+
 	existingLock := lock.Tasks[task.CanonicalName]
 	lock.Tasks[task.CanonicalName] = TaskLock{
 		SpecHash:     specHash,
 		VerifierHash: verifHash,
 		Verified:     existingLock.Verified,
 		CommitHash:   existingLock.CommitHash,
+		Mode:         lockMode,
 	}
 	writeLockFile(lock)
 
@@ -673,12 +723,20 @@ func cmdPlanLock(db *sql.DB, args []string) {
 	setActiveTask(task.CanonicalName)
 	_ = setActiveRole("implementador")
 
-	// Actualizar estado en SQLite (solo para observabilidad local)
-	_, _ = db.Exec(`UPDATE tasks SET status = 'PLANNED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, task.ID)
+	// Actualizar estado y modo en SQLite (solo para observabilidad local)
+	_, _ = db.Exec(`
+		INSERT INTO tasks (id, name, spec_path, status, mode, spec_sha256, verifier_sha256, updated_at)
+		VALUES (?, ?, ?, 'PLANNED', ?, ?, ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(id) DO UPDATE SET status = 'PLANNED', mode = excluded.mode, spec_sha256 = excluded.spec_sha256, verifier_sha256 = excluded.verifier_sha256, updated_at = CURRENT_TIMESTAMP`,
+		task.ID, task.Name, task.SpecPath, normalizeTaskMode(task.Mode), specHash, verifHash)
 
 	dur := time.Since(start).Milliseconds()
-	logInternalAction(db, task.ID, "seb-planificador", "plan-lock", task.CanonicalName, fmt.Sprintf("checks=%d", len(checks)), dur, 0)
-	fmt.Printf("[seb-harness] Plan sellado en .seb/seb.lock y marcado como activo para '%s'.\n", task.CanonicalName)
+	lockSkill := "seb-planificador"
+	if task.Mode == taskModeFAST {
+		lockSkill = "seb-fast-task"
+	}
+	logInternalAction(db, task.ID, lockSkill, "plan-lock", task.CanonicalName, fmt.Sprintf("mode=%s checks=%d", normalizeTaskMode(task.Mode), len(checks)), dur, 0)
+	fmt.Printf("[seb-harness] Plan sellado en .seb/seb.lock (modo %s) y marcado como activo para '%s'.\n", normalizeTaskMode(task.Mode), task.CanonicalName)
 }
 
 // 3. seb verify <nombre_tarea>
@@ -713,6 +771,22 @@ func cmdVerify(db *sql.DB, args []string) {
 			if currentVerifHash != taskLock.VerifierHash {
 				fatal("VIOLACIÓN DE INTEGRIDAD (Anti-Reward-Hacking): '%s' modificado.", task.VerifierPath)
 			}
+		}
+	}
+
+	isFast := task.Mode == taskModeFAST || strings.EqualFold(taskLock.Mode, "fast")
+	effectiveMode := taskModeSDD
+	if isFast {
+		effectiveMode = taskModeFAST
+		fastCfg, cfgErr := loadFastTrackConfig(".seb/config.json")
+		if cfgErr != nil {
+			fatal("%v", cfgErr)
+		}
+		if diffErr := validateFastDiffThresholds(task.CanonicalName, fastCfg); diffErr != nil {
+			fatal("%v", diffErr)
+		}
+		if arhErr := validateFastAntiRewardHackingDiff(task.CanonicalName); arhErr != nil {
+			fatal("%v", arhErr)
 		}
 	}
 
@@ -762,10 +836,14 @@ func cmdVerify(db *sql.DB, args []string) {
 
 	durVerify := time.Since(startVerify).Milliseconds()
 	if failed > 0 {
-		logInternalAction(db, task.ID, "seb-verificador", "verify", task.CanonicalName, fmt.Sprintf("passed=%d failed=%d", passed, failed), durVerify, 2)
-		_, _ = db.Exec(`UPDATE tasks SET status = 'FAILED_VERIFICATION', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, task.ID)
+		logInternalAction(db, task.ID, "seb-verificador", "verify", task.CanonicalName, fmt.Sprintf("mode=%s passed=%d failed=%d", effectiveMode, passed, failed), durVerify, 2)
+		_, _ = db.Exec(`
+			INSERT INTO tasks (id, name, spec_path, status, mode, updated_at)
+			VALUES (?, ?, ?, 'FAILED_VERIFICATION', ?, CURRENT_TIMESTAMP)
+			ON CONFLICT(id) DO UPDATE SET status = 'FAILED_VERIFICATION', mode = excluded.mode, updated_at = CURRENT_TIMESTAMP`,
+			task.ID, task.Name, task.SpecPath, effectiveMode)
 		fmt.Println(failureDetails.String())
-		fmt.Println("\n**VEREDICTO:** `PENDIENTE DE IMPLEMENTACIÓN` — Corrige el código de aplicación sin alterar `*_verificador.md`.")
+		fmt.Println("\n**VEREDICTO:** `PENDIENTE DE IMPLEMENTACIÓN` — Corrige el código de aplicación sin alterar `*_verificador.md` ni `*_plan_y_verificador.md`.")
 		os.Exit(2)
 	}
 
@@ -773,8 +851,12 @@ func cmdVerify(db *sql.DB, args []string) {
 	clearActiveTask()
 	_ = clearActiveRole()
 	_ = updateTaskLockVerification(task.CanonicalName, commitHash)
-	logInternalAction(db, task.ID, "seb-verificador", "verify", task.CanonicalName, fmt.Sprintf("passed=%d failed=%d", passed, failed), durVerify, 0)
-	_, _ = db.Exec(`UPDATE tasks SET status = 'VERIFIED', updated_at = CURRENT_TIMESTAMP WHERE id = ?`, task.ID)
+	logInternalAction(db, task.ID, "seb-verificador", "verify", task.CanonicalName, fmt.Sprintf("mode=%s passed=%d failed=%d", effectiveMode, passed, failed), durVerify, 0)
+	_, _ = db.Exec(`
+		INSERT INTO tasks (id, name, spec_path, status, mode, updated_at)
+		VALUES (?, ?, ?, 'VERIFIED', ?, CURRENT_TIMESTAMP)
+		ON CONFLICT(id) DO UPDATE SET status = 'VERIFIED', mode = excluded.mode, updated_at = CURRENT_TIMESTAMP`,
+		task.ID, task.Name, task.SpecPath, effectiveMode)
 	fmt.Println("\n**VEREDICTO:** `APROBADO` — Todos los controles deterministas pasaron con éxito.")
 }
 
@@ -982,6 +1064,8 @@ func checkPermission(role, action, target string) bool {
 		return (strings.HasPrefix(target, "specs/") && strings.HasSuffix(target, "_spec.md")) || target == "MEMORY.md"
 	case "seb-planificador":
 		return (strings.HasPrefix(target, "specs/") && (strings.HasSuffix(target, "_plan.md") || strings.HasSuffix(target, "_verificador.md"))) || target == "MEMORY.md"
+	case "seb-fast-task":
+		return (strings.HasPrefix(target, "specs/") && (strings.HasSuffix(target, "_spec.md") || strings.HasSuffix(target, "_plan_y_verificador.md"))) || target == "MEMORY.md"
 	case "seb-verificador":
 		return target == "MEMORY.md"
 	case "seb-documentador":
@@ -993,9 +1077,9 @@ func checkPermission(role, action, target string) bool {
 		// Rol one-off (Spec 013): solo artefactos SDD, documentales y seb.lock; nunca codigo, tests ni constitucion
 		return isMigradorWritableTarget(target)
 	case "implementador", "default", "":
-		// El agente implementador jamás puede tocar la constitución, specs ni verificadores
+		// El agente implementador jamás puede tocar la constitución, specs ni verificadores (SDD o FAST)
 		if target == "docs/constitution.md" ||
-			(strings.HasPrefix(target, "specs/") && (strings.HasSuffix(target, "_spec.md") || strings.HasSuffix(target, "_verificador.md"))) {
+			(strings.HasPrefix(target, "specs/") && (strings.HasSuffix(target, "_spec.md") || strings.HasSuffix(target, "_verificador.md") || strings.HasSuffix(target, "_plan_y_verificador.md"))) {
 			return false
 		}
 		return true
@@ -1003,7 +1087,7 @@ func checkPermission(role, action, target string) bool {
 		// Habilidades de soporte o dominio desconocidas (RF-07) heredan la política de implementador:
 		// Tienen permiso para modificar código de aplicación pero NO contratos protegidos (RF-08).
 		if target == "docs/constitution.md" ||
-			(strings.HasPrefix(target, "specs/") && (strings.HasSuffix(target, "_spec.md") || strings.HasSuffix(target, "_verificador.md"))) {
+			(strings.HasPrefix(target, "specs/") && (strings.HasSuffix(target, "_spec.md") || strings.HasSuffix(target, "_verificador.md") || strings.HasSuffix(target, "_plan_y_verificador.md"))) {
 			return false
 		}
 		return true
@@ -1106,36 +1190,70 @@ func cmdAudit(db *sql.DB, args []string) {
 
 func renderAuditReport(db *sql.DB) string {
 	var b strings.Builder
-	b.WriteString("## 📊 Audit Trail & Observabilidad (`seb-harness`)\n\n")
-	b.WriteString("### 1. Métricas por Tarea / Caso (Latencia, Tokens y Coste)\n")
+	b.WriteString("## Audit Trail & Observabilidad (`seb-harness`)\n\n")
+	b.WriteString("### 1. Métricas por Tarea / Caso (Modo, Latencia, Tokens y Coste)\n")
 	rows, err := db.Query(`
-		SELECT COALESCE(NULLIF(task_id, ''), 'global'),
+		SELECT COALESCE(NULLIF(a.task_id, ''), 'global') AS tid,
+		       COALESCE(t.mode, CASE WHEN SUM(CASE WHEN a.skill = 'seb-fast-task' THEN 1 ELSE 0 END) > 0 THEN 'FAST' ELSE 'SDD' END) AS mode,
 		       COUNT(*),
-		       COALESCE(SUM(duration_ms), 0),
-		       COALESCE(SUM(tokens_in), 0),
-		       COALESCE(SUM(cache_read_tokens), 0),
-		       COALESCE(SUM(tokens_out), 0),
-		       ROUND(COALESCE(SUM(cost_usd), 0.0), 5)
-		FROM agent_actions
-		GROUP BY COALESCE(NULLIF(task_id, ''), 'global')
+		       COALESCE(SUM(a.duration_ms), 0),
+		       COALESCE(SUM(a.tokens_in), 0),
+		       COALESCE(SUM(a.cache_read_tokens), 0),
+		       COALESCE(SUM(a.tokens_out), 0),
+		       ROUND(COALESCE(SUM(a.cost_usd), 0.0), 5)
+		FROM agent_actions a
+		LEFT JOIN tasks t ON t.id = a.task_id OR (t.id || '_' || t.name) = a.task_id
+		GROUP BY tid
 		ORDER BY 1 ASC`)
 	if err != nil {
 		fatal("Error generando reporte: %v", err)
 	}
 	defer rows.Close()
 
-	b.WriteString("| Caso / Task ID | Llamadas a Tools | Latencia Total (ms) | Tokens In | Cache Read | Tokens Out | Coste Acumulado (USD) |\n")
-	b.WriteString("| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n")
+	type modeAgg struct {
+		tasks int
+		calls int
+		dur   int64
+		tIn   int64
+		tOut  int64
+		cost  float64
+	}
+	byMode := map[string]*modeAgg{
+		taskModeSDD:  {},
+		taskModeFAST: {},
+	}
+
+	b.WriteString("| Caso / Task ID | Modo | Llamadas a Tools | Latencia Total (ms) | Tokens In | Cache Read | Tokens Out | Coste Acumulado (USD) |\n")
+	b.WriteString("| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n")
 	for rows.Next() {
-		var task string
+		var task, mode string
 		var calls int
 		var dur, tIn, tCache, tOut int64
 		var cost float64
-		_ = rows.Scan(&task, &calls, &dur, &tIn, &tCache, &tOut, &cost)
-		b.WriteString(fmt.Sprintf("| `%s` | %d | %d ms | %d | %d | %d | $%.5f |\n", task, calls, dur, tIn, tCache, tOut, cost))
+		_ = rows.Scan(&task, &mode, &calls, &dur, &tIn, &tCache, &tOut, &cost)
+		normMode := normalizeTaskMode(mode)
+		if task == "global" {
+			normMode = "-"
+		} else if agg, ok := byMode[normMode]; ok {
+			agg.tasks++
+			agg.calls += calls
+			agg.dur += dur
+			agg.tIn += tIn
+			agg.tOut += tOut
+			agg.cost += cost
+		}
+		b.WriteString(fmt.Sprintf("| `%s` | `%s` | %d | %d ms | %d | %d | %d | $%.5f |\n", task, normMode, calls, dur, tIn, tCache, tOut, cost))
 	}
 
-	b.WriteString("\n### 2. Últimas 10 Acciones Registradas\n")
+	b.WriteString("\n### 2. Resumen Comparativo por Modo (FAST vs SDD)\n")
+	b.WriteString("| Modo | Tareas | Llamadas | Latencia Total (ms) | Tokens In | Tokens Out | Coste Acumulado (USD) |\n")
+	b.WriteString("| :--- | :--- | :--- | :--- | :--- | :--- | :--- |\n")
+	for _, m := range []string{taskModeSDD, taskModeFAST} {
+		agg := byMode[m]
+		b.WriteString(fmt.Sprintf("| `%s` | %d | %d | %d ms | %d | %d | $%.5f |\n", m, agg.tasks, agg.calls, agg.dur, agg.tIn, agg.tOut, agg.cost))
+	}
+
+	b.WriteString("\n### 3. Últimas 10 Acciones Registradas\n")
 	recent, err := db.Query(`
 		SELECT timestamp, agent, COALESCE(NULLIF(skill,''), '-'), action, duration_ms, tokens_in+tokens_out, cache_read_tokens, cost_usd, exit_code
 		FROM agent_actions ORDER BY id DESC LIMIT 10`)
@@ -1556,9 +1674,11 @@ func executeTaskPurge(db *sql.DB, task TaskInfo, lock SebLock) error {
 		}
 	}
 
-	// B. Archivos fisicos en specs/
-	for _, p := range []string{task.SpecPath, task.PlanPath, task.VerifierPath} {
-		if p != "" {
+	// B. Archivos fisicos en specs/ (incluyendo artefacto unificado FAST si existe)
+	seenPaths := make(map[string]bool)
+	for _, p := range []string{task.SpecPath, task.PlanPath, task.VerifierPath, task.FastPath} {
+		if p != "" && !seenPaths[p] {
+			seenPaths[p] = true
 			if err := os.Remove(p); err != nil && !os.IsNotExist(err) {
 				return fmt.Errorf("error eliminando '%s': %w", p, err)
 			}
@@ -1619,6 +1739,7 @@ var canonicalRoles = map[string]bool{
 	"seb-especificador": true,
 	"seb-clarificador":  true,
 	"seb-planificador":  true,
+	"seb-fast-task":     true,
 	"seb-verificador":   true,
 	"seb-documentador":  true,
 	"implementador":     true,
@@ -1640,7 +1761,7 @@ func getActiveRolePath() string {
 func setActiveRole(role string, rolePaths ...string) error {
 	norm := normalizeRole(role)
 	if !isCanonicalRole(norm) {
-		return fmt.Errorf("rol '%s' no reconocido. Roles canónicos válidos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, seb-documentador, implementador, migrador", role)
+		return fmt.Errorf("rol '%s' no reconocido. Roles canónicos válidos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-fast-task, seb-verificador, seb-documentador, implementador, migrador", role)
 	}
 	path := defaultActiveRolePath
 	if len(rolePaths) > 0 && rolePaths[0] != "" {
@@ -1689,7 +1810,7 @@ func cmdRole(db *sql.DB, args []string) error {
 	switch sub {
 	case "set":
 		if len(args) < 2 || strings.TrimSpace(args[1]) == "" {
-			return fmt.Errorf("debe especificar un rol válido. Roles canónicos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-verificador, seb-documentador, implementador, migrador")
+			return fmt.Errorf("debe especificar un rol válido. Roles canónicos: seb-iniciador, seb-especificador, seb-clarificador, seb-planificador, seb-fast-task, seb-verificador, seb-documentador, implementador, migrador")
 		}
 		roleArg := args[1]
 		if err := setActiveRole(roleArg); err != nil {
@@ -2035,7 +2156,7 @@ func inferActiveSkill(envSkill, transcriptPath, activeTaskPath string, activeRol
 	if lastSkill == "" {
 		return "implementador"
 	}
-	if hasActiveLockedTask && lastSkill == "seb-planificador" {
+	if hasActiveLockedTask && (lastSkill == "seb-planificador" || lastSkill == "seb-fast-task") {
 		return "implementador"
 	}
 	return lastSkill
@@ -2079,7 +2200,7 @@ func timerFilePath(sessionID string, stepIdx int, toolName string) string {
 }
 
 var dangerousCmdRegex = regexp.MustCompile(`(rm\s+-rf\s+/|git\s+commit.*--no-verify|git\s+push.*--force|chmod\s+777)`)
-var shellRedirectContractRegex = regexp.MustCompile(`(>|tee|sed\s+-i).*(constitution\.md|_spec\.md|_verificador\.md)`)
+var shellRedirectContractRegex = regexp.MustCompile(`(>|tee|sed\s+-i).*(constitution\.md|_spec\.md|_verificador\.md|_plan_y_verificador\.md)`)
 
 // processHookPreTool ejecuta la logica de PreToolUse en formato Antigravity
 func processHookPreTool(db *sql.DB, payloadBytes []byte, envSkill, activeTaskPath, workspaceRoot string) (string, error) {

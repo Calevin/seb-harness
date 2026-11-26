@@ -12,12 +12,12 @@ Operas bajo **`seb-harness`**. Estas restricciones aplican en todo turno:
 - No reintentes enfoques documentados en la sección **"2. Callejones sin Salida"** de `@MEMORY.md`.
 
 ## 2. Integridad y Anti-Reward-Hacking
-- Como implementador, tienes **terminantemente prohibido** modificar, comentar o relajar `@docs/constitution.md`, `specs/*_spec.md` o `specs/*_verificador.md`.
+- Como implementador, tienes **terminantemente prohibido** modificar, comentar o relajar `@docs/constitution.md`, `specs/*_spec.md`, `specs/*_verificador.md` o `specs/*_plan_y_verificador.md`.
 - Prohibido deshabilitar tests (`skip`, `t.Skip()`, `@Ignore`, `markTestSkipped()`), eliminar aserciones o simular retornos falsos para forzar un aprobado. Si un requisito es inviable, detente, regístralo con `.seb/bin/seb memory-add` y solicita `seb-clarificador`.
 
 ## 3. Menor Privilegio y Protocolo SDD
 - Respeta estrictamente el alcance del rol activo impuesto por `.seb/bin/seb guard` y nunca escales al rol `migrador` ni ejecutes `seb oneoff`.
-- Para tareas bajo flujo SDD (especificar, clarificar, planificar, implementar, verificar o documentar), lee y sigue el protocolo completo en `.agents/SEB-HARNESS.md`.
+- Para tareas bajo flujo SDD completo, lee y sigue `.agents/SEB-HARNESS.md`. Para cambios menores elegibles en modo `FAST`, opera únicamente invocando el skill `seb-fast-task`.
 
 ## 4. Integridad del Grafo de Dependencias (DAG)
 - Prohibido planificar o implementar una tarea cuyas dependencias directas no estén verificadas (`verified: true` y `commit_hash` en `.seb/seb.lock`).

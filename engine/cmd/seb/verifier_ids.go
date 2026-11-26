@@ -13,7 +13,7 @@ var (
 	legacyCheckIDRegex   = regexp.MustCompile(`^CHK-`)
 	prefixedCheckIDRegex = regexp.MustCompile(`^(\d{3})-CHK-[A-Za-z0-9_-]+$`)
 	requirementRefRegex  = regexp.MustCompile(`^(\d{3})-(HU|RF|RNF|CL|CHK)-[A-Za-z0-9_-]+$`)
-	verifierTaskIDRegex  = regexp.MustCompile(`^(\d{3})_.+_verificador\.md$`)
+	verifierTaskIDRegex  = regexp.MustCompile(`^(\d{3})_.+_(?:plan_y_)?verificador\.md$`)
 	specFileIDRegex      = regexp.MustCompile(`^(\d{3})_.+_spec\.md$`)
 )
 
@@ -42,11 +42,11 @@ func isCandidateFirstCell(cell string) bool {
 	return strings.Contains(cell, "-CHK-") || strings.HasPrefix(cell, "CHK-")
 }
 
-// taskIDFromVerifierPath deriva el ID de tarea de 3 digitos del nombre del verificador.
+// taskIDFromVerifierPath deriva el ID de tarea de 3 digitos del nombre del verificador (estandar o unificado FAST).
 func taskIDFromVerifierPath(path string) (string, error) {
 	m := verifierTaskIDRegex.FindStringSubmatch(filepath.Base(path))
 	if len(m) != 2 {
-		return "", fmt.Errorf("no se puede determinar el ID de tarea desde '%s' (se espera <NNN>_<tarea>_verificador.md)", filepath.Base(path))
+		return "", fmt.Errorf("no se puede determinar el ID de tarea desde '%s' (se espera <NNN>_<tarea>_verificador.md o <NNN>_<tarea>_plan_y_verificador.md)", filepath.Base(path))
 	}
 	return m[1], nil
 }

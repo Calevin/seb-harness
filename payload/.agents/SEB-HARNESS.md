@@ -30,7 +30,8 @@ Tienes terminantemente prohibido violar los permisos de tu rol activo:
 | `seb-especificador` | `docs/constitution.md`, `MEMORY.md`, `specs/` | `specs/<NNN>_<tarea>_spec.md` | `.seb/bin/seb spec-next <tarea>` |
 | `seb-clarificador` | Todo el repositorio (solo lectura) | `specs/<NNN>_<tarea>_spec.md`, `MEMORY.md` | `.seb/bin/seb status` |
 | `seb-planificador` | Todo el repositorio (solo lectura) | `specs/<NNN>_<tarea>_plan.md`, `specs/<NNN>_<tarea>_verificador.md`, `MEMORY.md` | `.seb/bin/seb plan-lock <tarea>` |
-| **Implementador** | Todo el repositorio | Código fuente, tests, `MEMORY.md` (**PROHIBIDO** editar `constitution.md`, `*_spec.md` o `*_verificador.md`) | Tests, linters, compiladores locales |
+| `seb-fast-task` | Todo el repositorio (solo lectura) | `specs/<NNN>_<tarea>_spec.md`, `specs/<NNN>_<tarea>_plan_y_verificador.md`, `MEMORY.md` | `.seb/bin/seb spec-next`, `plan-lock`, `status`, `help`, `memory-add` |
+| **Implementador** | Todo el repositorio | Código fuente, tests, `MEMORY.md` (**PROHIBIDO** editar `constitution.md`, `*_spec.md`, `*_verificador.md` o `*_plan_y_verificador.md`) | Tests, linters, compiladores locales |
 | `seb-verificador` | `specs/*`, resultados de verificación | `MEMORY.md` (solo si detecta limitaciones de entorno) | `.seb/bin/seb verify <tarea>` |
 | `seb-documentador` | `docs/constitution.md`, `specs/*`, código fuente, tests (solo lectura) | `docs/use-cases/*.md`, `docs/use-cases/README.md`, `MEMORY.md` | Inspección pasiva (`git diff`, etc.) |
 | `migrador` (one-off, solo humano) | Todo el repositorio | `specs/*_spec.md`, `specs/*_plan.md`, `specs/*_verificador.md`, `docs/use-cases/*`, `MEMORY.md`, `.seb/seb.lock` | `.seb/bin/seb oneoff <id_spec>` |

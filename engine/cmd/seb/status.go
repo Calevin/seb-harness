@@ -26,27 +26,29 @@ type DependencyStatus struct {
 	State  string `json:"state"` // OK, PENDIENTE, ABORTADA, AUSENTE, AMBIGUA
 }
 
-// TaskStatusDetail consolida la vista unificada multi-fuente de una tarea SDD.
+// TaskStatusDetail consolida la vista unificada multi-fuente de una tarea SDD o FAST.
 type TaskStatusDetail struct {
-	ID             string             `json:"id"`
-	Name           string             `json:"name"`
-	CanonicalName  string             `json:"canonical_name"`
-	SpecPath       string             `json:"spec_path"`
-	HasSpec        bool               `json:"has_spec"`
-	EditorialState string             `json:"editorial_state"`
-	Clarifications int                `json:"clarifications_pending"`
-	EngineStatus   string             `json:"engine_status"`
-	InSQLite       bool               `json:"in_sqlite"`
-	HasPlan        bool               `json:"has_plan"`
-	HasVerifier    bool               `json:"has_verifier"`
-	InLock         bool               `json:"in_lock"`
-	LockVerified   bool               `json:"lock_verified"`
-	LockAborted    bool               `json:"lock_aborted"`
-	LockCommit     string             `json:"lock_commit_hash,omitempty"`
-	Dependencies   []DependencyStatus `json:"dependencies"`
-	Alerts         []string           `json:"alerts"`
-	NextStep       string             `json:"next_step"`
-	UpdatedAt      string             `json:"updated_at,omitempty"`
+	ID                     string             `json:"id"`
+	Name                   string             `json:"name"`
+	CanonicalName          string             `json:"canonical_name"`
+	Mode                   string             `json:"mode"`
+	SpecPath               string             `json:"spec_path"`
+	HasSpec                bool               `json:"has_spec"`
+	EditorialState         string             `json:"editorial_state"`
+	Clarifications         int                `json:"clarifications_pending"`
+	EngineStatus           string             `json:"engine_status"`
+	InSQLite               bool               `json:"in_sqlite"`
+	HasPlan                bool               `json:"has_plan"`
+	HasVerifier            bool               `json:"has_verifier"`
+	HasUnifiedPlanVerifier bool               `json:"has_unified_plan_verifier,omitempty"`
+	InLock                 bool               `json:"in_lock"`
+	LockVerified           bool               `json:"lock_verified"`
+	LockAborted            bool               `json:"lock_aborted"`
+	LockCommit             string             `json:"lock_commit_hash,omitempty"`
+	Dependencies           []DependencyStatus `json:"dependencies"`
+	Alerts                 []string           `json:"alerts"`
+	NextStep               string             `json:"next_step"`
+	UpdatedAt              string             `json:"updated_at,omitempty"`
 }
 
 // StatusReport representa el resultado estructurado de seb status.
@@ -165,6 +167,7 @@ func buildStatusReport(db *sql.DB, lockPath string, filter string) (*StatusRepor
 			ID:             id,
 			Name:           name,
 			CanonicalName:  canonical,
+			Mode:           taskModeSDD,
 			SpecPath:       buildArtifactPath(id, name, "spec"),
 			EditorialState: "NO_SPEC",
 			EngineStatus:   "NO_REGISTRADA",
@@ -193,6 +196,9 @@ func buildStatusReport(db *sql.DB, lockPath string, filter string) (*StatusRepor
 		meta := parseSpecMetadata(slashPath)
 		t.EditorialState = meta.EditorialState
 		t.Clarifications = meta.Clarifications
+		if parseSpecMode(slashPath) == taskModeFAST {
+			t.Mode = taskModeFAST
+		}
 		for _, d := range meta.Dependencies {
 			t.Dependencies = append(t.Dependencies, DependencyStatus{Target: d})
 		}
@@ -214,30 +220,55 @@ func buildStatusReport(db *sql.DB, lockPath string, filter string) (*StatusRepor
 		t.LockVerified = tLock.Verified
 		t.LockAborted = tLock.Aborted
 		t.LockCommit = tLock.CommitHash
+		if strings.EqualFold(tLock.Mode, "fast") {
+			t.Mode = taskModeFAST
+		}
 	}
 
-	// 3. Cruzar registros de SQLite si existe base local
+	// 3. Cruzar registros de SQLite si existe base local (en solo lectura)
 	if db != nil {
-		rows, qErr := db.Query(`SELECT id, name, status, spec_path, updated_at FROM tasks ORDER BY id ASC`)
+		rows, qErr := db.Query(`SELECT id, name, status, spec_path, updated_at, mode FROM tasks ORDER BY id ASC`)
 		if qErr == nil {
 			defer rows.Close()
 			for rows.Next() {
-				var id, name, status, specPath, updatedAt string
-				if sErr := rows.Scan(&id, &name, &status, &specPath, &updatedAt); sErr == nil {
+				var id, name, status, specPath, updatedAt, mode string
+				if sErr := rows.Scan(&id, &name, &status, &specPath, &updatedAt, &mode); sErr == nil {
 					canonical := fmt.Sprintf("%s_%s", id, name)
 					t := ensureTask(canonical, id, name)
 					t.InSQLite = true
 					t.EngineStatus = status
 					t.UpdatedAt = updatedAt
+					if normalizeTaskMode(mode) == taskModeFAST {
+						t.Mode = taskModeFAST
+					}
 					if specPath != "" && !t.HasSpec {
 						t.SpecPath = specPath
+					}
+				}
+			}
+		} else {
+			// Compatibilidad con bases SQLite creadas antes de la columna mode
+			rowsLegacy, lErr := db.Query(`SELECT id, name, status, spec_path, updated_at FROM tasks ORDER BY id ASC`)
+			if lErr == nil {
+				defer rowsLegacy.Close()
+				for rowsLegacy.Next() {
+					var id, name, status, specPath, updatedAt string
+					if sErr := rowsLegacy.Scan(&id, &name, &status, &specPath, &updatedAt); sErr == nil {
+						canonical := fmt.Sprintf("%s_%s", id, name)
+						t := ensureTask(canonical, id, name)
+						t.InSQLite = true
+						t.EngineStatus = status
+						t.UpdatedAt = updatedAt
+						if specPath != "" && !t.HasSpec {
+							t.SpecPath = specPath
+						}
 					}
 				}
 			}
 		}
 	}
 
-	// 4. Completar presencia de plan/verificador, dependencias DAG, alertas y siguiente paso
+	// 4. Completar presencia de plan/verificador (SDD o FAST), detectar ambiguedad, dependencias DAG y alertas
 	for _, t := range tasksByCanonical {
 		if t.ID != "" && t.Name != "" {
 			if _, err := os.Stat(buildArtifactPath(t.ID, t.Name, "plan")); err == nil {
@@ -245,6 +276,16 @@ func buildStatusReport(db *sql.DB, lockPath string, filter string) (*StatusRepor
 			}
 			if _, err := os.Stat(buildArtifactPath(t.ID, t.Name, "verificador")); err == nil {
 				t.HasVerifier = true
+			}
+			fastPath := buildArtifactPath(t.ID, t.Name, "plan_y_verificador")
+			if _, err := os.Stat(fastPath); err == nil {
+				if t.HasPlan || t.HasVerifier {
+					return nil, fmt.Errorf("ambiguedad de artefactos para '%s': coexisten '%s' con artefactos SDD estandar (*_plan.md o *_verificador.md)", t.CanonicalName, fastPath)
+				}
+				t.HasUnifiedPlanVerifier = true
+				t.HasPlan = true
+				t.HasVerifier = true
+				t.Mode = taskModeFAST
 			}
 		}
 	}
@@ -419,10 +460,16 @@ func computeTaskNextStep(t *TaskStatusDetail) string {
 		return "Ejecutar skill 'seb-clarificador' para auditar, resolver dudas pendientes y pasar Estado a APROBADA."
 	}
 	if t.EditorialState == "APROBADA" && (!t.HasPlan || !t.HasVerifier || !t.InLock) {
+		if t.Mode == taskModeFAST {
+			return fmt.Sprintf("Ejecutar skill 'seb-fast-task' para generar *_plan_y_verificador.md y sellar con 'seb plan-lock %s'.", t.Name)
+		}
 		return fmt.Sprintf("Ejecutar skill 'seb-planificador' y sellar con 'seb plan-lock %s'.", t.Name)
 	}
 	if t.EngineStatus == "FAILED_VERIFICATION" {
 		return fmt.Sprintf("Corregir implementacion segun fallos y re-ejecutar 'seb verify %s'.", t.Name)
+	}
+	if t.Mode == taskModeFAST {
+		return fmt.Sprintf("Implementar segun *_plan_y_verificador.md (rol implementador) y ejecutar skill 'seb-verificador' ('seb verify %s').", t.Name)
 	}
 	return fmt.Sprintf("Implementar segun *_plan.md (rol implementador) y ejecutar skill 'seb-verificador' ('seb verify %s').", t.Name)
 }
@@ -432,8 +479,8 @@ func renderStatusCompact(w io.Writer, report *StatusReport) {
 		fmt.Fprintln(w, "No hay tareas ni especificaciones registradas en el proyecto.")
 		return
 	}
-	fmt.Fprintln(w, "| ID | Clave Canonica | Editorial | Motor | Lock | Dependencias | Alertas |")
-	fmt.Fprintln(w, "| :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
+	fmt.Fprintln(w, "| ID | Clave Canonica | Editorial | Motor | Lock | Dependencias | Alertas | Modo |")
+	fmt.Fprintln(w, "| :--- | :--- | :--- | :--- | :--- | :--- | :--- | :--- |")
 	for _, t := range report.Tasks {
 		lockStr := "NO"
 		if t.LockAborted {
@@ -458,8 +505,8 @@ func renderStatusCompact(w io.Writer, report *StatusReport) {
 			alertStr = fmt.Sprintf("%d", len(t.Alerts))
 		}
 
-		fmt.Fprintf(w, "| `%s` | `%s` | %s | %s | %s | %s | %s |\n",
-			t.ID, t.CanonicalName, t.EditorialState, t.EngineStatus, lockStr, depStr, alertStr)
+		fmt.Fprintf(w, "| `%s` | `%s` | %s | %s | %s | %s | %s | %s |\n",
+			t.ID, t.CanonicalName, t.EditorialState, t.EngineStatus, lockStr, depStr, alertStr, normalizeTaskMode(t.Mode))
 	}
 }
 
@@ -476,11 +523,15 @@ func renderStatusFull(w io.Writer, report *StatusReport) {
 		if idx > 0 {
 			fmt.Fprintln(w, "---")
 		}
-		fmt.Fprintf(w, "Tarea: %s (ID: %s, Nombre: %s)\n", t.CanonicalName, t.ID, t.Name)
+		fmt.Fprintf(w, "Tarea: %s (ID: %s, Nombre: %s, Modo: %s)\n", t.CanonicalName, t.ID, t.Name, normalizeTaskMode(t.Mode))
 		fmt.Fprintf(w, "  Spec: %s (presente: %v)\n", t.SpecPath, t.HasSpec)
 		fmt.Fprintf(w, "  Estado Editorial (Markdown): %s | Aclaraciones pendientes: %d\n", t.EditorialState, t.Clarifications)
 		fmt.Fprintf(w, "  Estado Motor (SQLite): %s\n", t.EngineStatus)
-		fmt.Fprintf(w, "  Artefactos: plan=%v, verificador=%v\n", t.HasPlan, t.HasVerifier)
+		if t.Mode == taskModeFAST {
+			fmt.Fprintf(w, "  Artefactos: plan_y_verificador=%v\n", t.HasUnifiedPlanVerifier)
+		} else {
+			fmt.Fprintf(w, "  Artefactos: plan=%v, verificador=%v\n", t.HasPlan, t.HasVerifier)
+		}
 		commitDisplay := t.LockCommit
 		if commitDisplay == "" {
 			commitDisplay = "-"

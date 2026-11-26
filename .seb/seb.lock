@@ -101,6 +101,12 @@
       "verifier_hash": "f7bca721b73cfca87523a0af1bf27c0cac5cea7ec37b3c7de70ed4e5a06a7b39",
       "verified": true,
       "commit_hash": "ed2a533"
+    },
+    "018_flujo_rapido": {
+      "spec_hash": "f8e4f9620f0bfd94b9ed0e159e7cf3af3257401a036e8eb2044ecf4495032ff8",
+      "verifier_hash": "60cb1a6d586b6dd9163cb5bb6c69f0d42817d71b7f1932a7f48b6a3464c46b12",
+      "verified": true,
+      "commit_hash": "38d3d4a"
     }
   }
 }

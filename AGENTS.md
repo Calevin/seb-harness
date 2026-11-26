@@ -9,7 +9,8 @@ Este repositorio opera bajo **`seb-harness`** (SDD + Verificación Determinista)
 2. **`MEMORY.md`**: Callejones sin salida, restricciones técnicas y decisiones históricas.
 
 ## Enrutamiento Operativo
-- **Flujo SDD completo** (especificar, clarificar, planificar, implementar, verificar o documentar): **lee `.agents/SEB-HARNESS.md` antes de actuar** y delega el control al binario `.seb/bin/seb` (`status`, `help`, `spec-next`, `plan-lock`, `verify`, `oneoff`).
+- **Flujo SDD completo** (features, cambios de arquitectura, contratos públicos, nuevas dependencias o riesgo medio/alto): **lee `.agents/SEB-HARNESS.md` antes de actuar** y delega el control al binario `.seb/bin/seb` (`status`, `help`, `spec-next`, `plan-lock`, `verify`, `oneoff`).
+- **Flujo Rápido (`FAST`)** (solo cambios menores de bajo riesgo, `<= 4` archivos y `<= 100` líneas por defecto, sin cambios de arquitectura/contratos/dependencias): **se inicia únicamente invocando el skill `seb-fast-task`** (`.agents/skills/seb-fast-task/SKILL.md`), que genera 2 artefactos acotados sellados y verificados con `.seb/bin/seb`.
 <!-- END seb-harness:managed -->
 
 ## Instrucciones Propias del Proyecto
