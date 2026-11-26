@@ -3,6 +3,7 @@
 > **Trazabilidad SDD:** Derivado de la spec `specs/002_prefijo_secuencial_artefactos_spec.md` (Requisitos: `002-RF-01`, `002-RF-02`, `002-RF-03`, `002-RF-04`, `002-RF-05`, `002-RF-06`, `002-RF-07`, `002-RF-08`, `002-RF-09`, `002-RF-10`, `002-RNF-01`, `002-RNF-02`).
 > **Revision (Spec 013):** `specs/013_identificadores_unicos_requisitos_spec.md` (Requisitos: `013-RF-01` a `013-RF-06`, `013-RF-32`) extiende la nomenclatura secuencial a los identificadores internos de cada spec: todo elemento `HU`, `RF`, `RNF`, `CL` y `CHK` se identifica como `<NNN>-<TIPO>-<NN>`, unico en todo el repositorio.
 > **Revision (Spec 015):** `specs/015_integridad_reserva_purga_spec.md` (Requisitos: `015-RF-01` a `015-RF-08`, `015-RF-11`, `015-RNF-01`, `015-RNF-02`) garantiza la reserva atomica en `seb spec-next [--dry-run] <nombre_tarea>` creando el archivo stub inicial en disco, rechazando colisiones de ID y acotando la idempotencia a stubs sin redactar.
+> **Revision (Spec 018):** `specs/018_flujo_rapido_spec.md` (Requisitos: `018-RF-07`, `018-RF-10`, `018-CL-02`) incorpora la diada acotada `FAST` compartiendo la secuencia `<NNN>` (`specs/<NNN>_<tarea>_spec.md` + `specs/<NNN>_<tarea>_plan_y_verificador.md`), sella `mode: "fast"` en `.seb/seb.lock` y rechaza con exit code `1` la coexistencia ambigua de artefactos `FAST` y `SDD` para la misma tarea.
 
 ## 1. Ficha de Intencion
 - **ID:** UC-artifacts_sequential_naming

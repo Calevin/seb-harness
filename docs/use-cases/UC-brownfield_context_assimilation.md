@@ -2,6 +2,7 @@
 
 > **Trazabilidad SDD:** Derivado de la spec `specs/007_migracion_contexto_brownfield_spec.md` (Requisitos: `007-RF-01` a `007-RF-09`, `007-RNF-01`, `007-RNF-02`).
 > **Revision (Spec 017):** `specs/017_separacion_protocolo_agents_spec.md` (Requisitos: `017-RF-01` a `017-RF-08`, `017-RF-11`, `017-RF-12`, `017-RNF-01` a `017-RNF-03`, `017-CL-01` a `017-CL-03`) separa el protocolo SDD completo en `.agents/SEB-HARNESS.md`, transforma `AGENTS.md` en un enrutador liviano con bloque gestionado (`<!-- BEGIN/END seb-harness:managed -->`), respalda archivos `AGENTS.md` legados en `AGENTS.legacy-seb.md` y exige aborto ante marcadores malformados.
+> **Revision (Spec 018):** `specs/018_flujo_rapido_spec.md` (Requisitos: `018-RF-02`, `018-RF-04`, `018-RNF-01`, `018-RNF-02`) amplía el bloque gestionado de `AGENTS.md` (`<= 30` lineas) para enrutar explicitamente hacia el Flujo Rapido mediante el skill `seb-fast-task` (`.agents/skills/seb-fast-task/SKILL.md`) y distribuye dicho skill y sus plantillas acotadas de forma idempotente en `install.sh` (incluyendo modo `--self`).
 
 ## 1. Ficha de Intencion
 - **ID:** UC-brownfield_context_assimilation

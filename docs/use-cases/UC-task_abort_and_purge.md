@@ -2,6 +2,7 @@
 
 > **Trazabilidad SDD:** Derivado de la spec `specs/009_aborto_tarea_spec.md` (Requisitos: `009-RF-01` a `009-RF-14`, `009-RNF-01`, `009-RNF-02`, `009-RNF-03`, `009-RNF-04`).
 > **Revision (Spec 015):** `specs/015_integridad_reserva_purga_spec.md` (Requisitos: `015-RF-09`, `015-RF-10`, `015-RNF-02`, `015-CL-03`) acota la purga en SQLite estrictamente a la identidad univoca resuelta (`id` / clave canonica), evitando borrados colaterales de tareas con distinto identificador que compartan el mismo nombre simple.
+> **Revision (Spec 018):** `specs/018_flujo_rapido_spec.md` (Requisitos: `018-RF-17`) extiende `seb abort` y `seb abort --purge` para reconocer y gestionar de forma atomica los dos artefactos acotados de tareas `FAST` (`specs/<NNN>_<tarea>_spec.md` y `specs/<NNN>_<tarea>_plan_y_verificador.md`).
 
 ## 1. Ficha de Intencion
 - **ID:** UC-task_abort_and_purge

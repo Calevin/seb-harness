@@ -2,6 +2,7 @@
 
 > **Trazabilidad SDD:** Derivado de la spec `specs/003_desinstalacion_arnes_spec.md` (Requisitos: `003-RF-01` a `003-RF-18`, `003-RNF-01`, `003-RNF-02`). Complementado por `specs/007_migracion_contexto_brownfield_spec.md` (`007-RF-08`) y `specs/010_integracion_documentador_spec.md` (`010-RF-12`).
 > **Revision (Spec 017):** `specs/017_separacion_protocolo_agents_spec.md` (Requisitos: `017-RF-10`, `017-RNF-03`, `017-CL-01`, `017-CL-02`, `017-CL-05`) incorpora la eliminacion de `.agents/SEB-HARNESS.md` y la remocion quirurgica del bloque gestionado `<!-- BEGIN/END seb-harness:managed -->` dentro de `AGENTS.md` en desinstalacion estandar (sin `--purge`).
+> **Revision (Spec 018):** `specs/018_flujo_rapido_spec.md` (Requisitos: `018-RF-03`) garantiza la eliminacion de `.agents/skills/seb-fast-task/` y sus plantillas acotadas junto con los demas artefactos oficiales dentro de `.agents/` durante la desinstalacion estandar (respetando `--dry-run`).
 
 ## 1. Ficha de Intencion
 - **ID:** UC-provisioning_harness_uninstall

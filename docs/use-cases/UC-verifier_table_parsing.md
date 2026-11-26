@@ -2,6 +2,7 @@
 
 > **Trazabilidad SDD:** Derivado de la spec `specs/006_parser_tabla_verificacion_spec.md` (Requisitos: `006-RF-01` a `006-RF-10`, `006-RNF-01`, `006-RNF-02`, `006-RNF-03`).
 > **Revision (Spec 013):** `specs/013_identificadores_unicos_requisitos_spec.md` (Requisitos: `013-RF-07` a `013-RF-13`, `013-CL-01` a `013-CL-03`, `013-CL-07` a `013-CL-09`) convierte el formato prefijado `<NNN>-CHK-<sufijo>` en el unico valido, valida las referencias de requisito contra las specs existentes y rechaza el formato heredado `CHK-NN` indicando el comando de migracion.
+> **Revision (Spec 018):** `specs/018_flujo_rapido_spec.md` (Requisitos: `018-RF-11`, `018-CL-04`) extiende `taskIDFromVerifierPath` y `parseVerifierFile` para soportar la matriz verificadora embebida en `specs/<NNN>_<tarea>_plan_y_verificador.md` con las mismas reglas de prefijos `<NNN>-CHK-*` y politica Anti-Silent-Drop.
 
 ## 1. Ficha de Intencion
 - **ID:** UC-verifier_table_parsing

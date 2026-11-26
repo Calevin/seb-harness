@@ -2,6 +2,7 @@
 
 > **Trazabilidad SDD:** Derivado de la spec `specs/008_estado_sesion_determinista_spec.md` (Requisitos: `008-RF-01` a `008-RF-09`, `008-RNF-01`, `008-RNF-02`).
 > **Revision (Spec 013):** `specs/013_identificadores_unicos_requisitos_spec.md` (Requisitos: `013-RF-14`, `013-RF-17`, `013-RF-19`, `013-RF-33`) incorpora el rol one-off `migrador`, unico autorizado a ejecutar operaciones one-off, con politica de escritura propia y denegacion de escalada para agentes en `PreToolUse`.
+> **Revision (Spec 018):** `specs/018_flujo_rapido_spec.md` (Requisitos: `018-RF-09`, `018-RF-12`, `018-RNF-03`) incorpora el rol canonico `seb-fast-task` (escritura restringida a `specs/*_spec.md`, `specs/*_plan_y_verificador.md` y `MEMORY.md`), bloquea la escritura sobre `specs/*_plan_y_verificador.md` para `implementador` y roles externos (tanto en `seb guard` como en `PreToolUse`) y transiciona automaticamente a `implementador` tras `seb plan-lock`.
 
 ## 1. Ficha de Intencion
 - **ID:** UC-session_role_management

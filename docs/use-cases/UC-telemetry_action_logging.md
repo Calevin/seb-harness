@@ -1,6 +1,7 @@
 # UC-telemetry_action_logging: Registro de Telemetria, Duracion y Tokens de Acciones
 
 > **Trazabilidad SDD:** Derivado de la spec `specs/001_registro_telemetria_acciones_spec.md` (Requisitos: `001-RF-01`, `001-RF-02`, `001-RF-03`, `001-RF-04`, `001-RF-05`, `001-RF-06`, `001-RF-07`, `001-RF-08`, `001-RF-09`, `001-RNF-01`, `001-RNF-02`, `001-RNF-03`).
+> **Revision (Spec 018):** `specs/018_flujo_rapido_spec.md` (Requisitos: `018-RF-14`, `018-RF-15`, `018-RNF-04`) incorpora la columna `mode` (`FAST` vs `SDD`) en la tabla `tasks` mediante migracion idempotente y enriquece `seb audit report` con distincion por modo en la tabla de tareas y una tabla comparativa agregada `FAST` vs `SDD` (tareas, llamadas, latencia, tokens y costo USD).
 
 ## 1. Ficha de Intencion
 - **ID:** UC-telemetry_action_logging

@@ -1,6 +1,7 @@
 # UC-cli_observability_introspection: Observabilidad Unificada e Introspeccion Bajo Demanda del CLI
 
 > **Trazabilidad SDD:** Derivado de la spec `specs/016_observabilidad_introspeccion_cli_spec.md` (Requisitos: `016-RF-01` a `016-RF-17`, `016-RNF-01` a `016-RNF-03`, `016-CL-01` a `016-CL-05`).
+> **Revision (Spec 018):** `specs/018_flujo_rapido_spec.md` (Requisitos: `018-RF-16`, `018-CL-02`, `018-CL-06`) extiende `seb status` (vista completa, `--compact` y `--json`) para distinguir explicitamente `FAST` vs `SDD`, reportar `has_unified_plan_verifier` en clones limpios o con DB, rechazar con codigo `1` artefactos mixtos ambiguos y documentar el flujo `FAST` en `seb help`.
 
 ## 1. Ficha de Intencion
 - **ID:** UC-cli_observability_introspection
